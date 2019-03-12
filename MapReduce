@@ -1,0 +1,146 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Jan 28 13:24:11 2019
+
+@author: Fro
+"""
+
+import nltk
+from nltk.tokenize import word_tokenize
+from nltk.stem import PorterStemmer
+from nltk.corpus import stopwords
+import requests
+from bs4 import BeautifulSoup
+import re
+import pandas as pd
+from sklearn.feature_extraction.text import CountVectorizer
+import math
+import numpy as np
+nltk.download("stopwords")
+sw = stopwords.words('english')
+ps= PorterStemmer()
+cv = CountVectorizer()
+#Map Function
+def mapper(news_items):
+    filtered_docs = []
+    leng =len(news_items)
+    for i in range(leng):
+        doc = news_items[i]['description'].lower()
+        tokens = word_tokenize(doc)
+        tmp = ""
+        for w in tokens:
+            if w not in sw:
+                w = re.sub('[^A-Za-z0-9]+', '',w )
+                tmp += ps.stem(w) + " "
+        filtered_docs.append(tmp)
+    ector = cv.fit_transform(filtered_docs)
+    ector = ector.toarray()
+    word = cv.get_feature_names()
+    return (ector,word)
+#Reduce Function
+def reducer(mappednews,words):
+    reduce = {}
+    listit = []
+    finallist=[]
+    for columns in range (len(ector[1,:])):
+        for rows in range (len(ector)):
+            if ector[rows,columns] >= 1:
+                sum2 =ector[rows,columns]
+                ind = rows
+                currentword = word[columns]
+                listit = 'document %d' % (ind),sum2
+                finallist.append(listit)
+                reduce[currentword] = finallist
+                listit = []
+        finallist=[]
+    return (reduce)
+#Retrieving crawled news
+url =["http://feeds.bbci.co.uk/news/uk/rss.xml",
+ "https://www.theguardian.com/world/rss",
+ "https://www.dailymail.co.uk/news/index.rss"]
+news_items=[]
+for element in url:
+    resp = requests.get(element)
+    soup = BeautifulSoup(resp.content, features="xml")
+    items = soup.findAll('item')
+    for item in items:
+        news_item = {}
+        news_item['title'] = item.title.text
+        news_item['description'] = item.description.text
+        news_item['link'] = item.link.text
+        news_items.append(news_item)
+#Applying map reduce
+ector, word = mapper(news_items)
+reduce = reducer(ector,word)
+#sample query
+query = "What is going to happen with Brexit"
+#Removing stopwords, special characters and transforming letters to lower
+query_const = []
+query =query.lower()
+tokens = word_tokenize(query)
+tmp = ""
+for w in tokens:
+    if w not in sw:
+        w = re.sub('[^A-Za-z0-9]+', '',w )
+        tmp += ps.stem(w) + " "
+query = word_tokenize(tmp)
+val = {}
+df_empty = pd.DataFrame()
+#Selecting only news that contain words given based on query
+idx=0
+for word in query:
+    if word in reduce:
+        findwords = reduce[word]
+        for i in range (len(findwords)):
+            split = findwords[i]
+            val[split[0]] = split[1]
+            df = pd.DataFrame(data=val, index=[idx])
+        idx+=1
+        df_empty = df_empty.append(df)
+        val = {}
+df_empty = df_empty.fillna(0)
+# Applying TF
+dfarr = df_empty.values
+df_tf = np.zeros((len(dfarr),len(dfarr[0,:])))
+for i in range (len(dfarr[0,:])):
+    for r in range (len(dfarr)):
+        if dfarr[r,i] > 0:
+            df_tf[r,i] = 1 + math.log(dfarr[r,i])
+        else:
+            continue
+#Applying IDF
+df_idf = np.zeros((len(dfarr),len(dfarr[0,:])))
+for i in range (len(dfarr[0,:])):
+    for r in range (len(dfarr)):
+        if dfarr[r,i] > 0:
+            df_idf[r,i] = math.log(np.count_nonzero(dfarr[0,:])/dfarr[r,i])
+        else:
+            continue
+##Applying TF-IDF
+df_tfidf = np.zeros((len(dfarr),len(dfarr[0,:])))
+for i in range (len(dfarr[0,:])):
+    for r in range (len(dfarr)):
+        df_tfidf[r,i] = df_tf[r,i] * df_idf[r,i]
+#Results based on news significant based on TF-IDF results
+df_sum = np.sum(df_tfidf,axis=0).tolist()
+df_sumfinal = np.zeros((1,len(dfarr[0,:])))
+for i in range (len(df_sum)):
+    df_sumfinal[0,i] = df_sum[i]
+list(df_empty)
+#retrieving the ID of each news document
+string = list(df_empty)
+a=[]
+for str in string:
+    str = [int(s) for s in str.split() if s.isdigit()]
+    a.append(str)
+a = np.asarray(a).transpose()
+#Sorting the matrix based on the first row
+df_sumfinal = np.vstack([df_sumfinal, a])
+c = df_sumfinal[0,:]
+i = np.argsort(c)
+df_sumfinal = df_sumfinal[:,i]
+#Displaying results
+news_for_the_client2 = []
+for i in range (len(df_sumfinal[0,:])):
+    news_for_the_client = news_items[int(df_sumfinal[1,i])]
+    news_for_the_client2.append(news_for_the_client)
