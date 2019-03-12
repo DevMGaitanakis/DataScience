@@ -1,0 +1,416 @@
+import pandas as pd 
+import matplotlib.pyplot as plt 
+import seaborn as sns 
+import numpy as np 
+from sklearn.preprocessing import StandardScaler 
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, BaggingClassifier, AdaBoostClassifier, ExtraTreesClassifier # Random forest classifier
+from sklearn.tree import DecisionTreeClassifier 
+from sklearn.svm import SVC 
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split 
+from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import GridSearchCV  
+from sklearn.model_selection import RandomizedSearchCV
+from sklearn.feature_selection import SelectFromModel 
+from sklearn.metrics import confusion_matrix,recall_score,precision_recall_curve,matthews_corrcoef, auc,roc_curve,roc_auc_score,classification_report
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+from imblearn.over_sampling import SMOTE
+from sklearn.neural_network import MLPClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.linear_model import LogisticRegression
+from sklearn import metrics
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
+from sklearn.decomposition import PCA
+from sklearn.decomposition import KernelPCA
+from sklearn.ensemble import VotingClassifier
+from sklearn.pipeline import Pipeline
+import math
+
+data = pd.read_csv('online_shoppers_intention.csv')
+#sns.countplot("Revenue",data=data)
+data['Revenue'].replace(False, 0, inplace=True)
+data['Revenue'].replace(True, 1, inplace=True)
+
+purchase_transacation = data[data["Revenue"]==1]
+npurchase_transacation= data[data["Revenue"]==0]
+
+#plt.figure(figsize=(10,6))
+#plt.subplot(121)
+#purchase_transacation.Revenue.plot.hist(title="Not Purchased")
+#plt.subplot(122)
+#npurchase_transacation.Revenue.plot.hist(title="Purchased")
+
+Count_npurchase_transacation = len(data[data["Revenue"]==0]) # npurchase transaction are repersented by 0
+Count_purchase_transacation = len(data[data["Revenue"]==1])
+
+purchase_indices= np.array(data[data.Revenue==1].index)
+npurchase_indices = np.array(data[data.Revenue==0].index)
+
+#now let us a define a function for make undersample data with different proportion
+#different proportion means with different proportion of npurchase classes of data
+def undersample(npurchase_indices,purchase_indices,times):#times denote the npurchase data = times*purchase data
+    npurchase_indices_undersample = np.array(np.random.choice(npurchase_indices,(times*Count_purchase_transacation),replace=False))
+    undersample_data= np.concatenate([purchase_indices,npurchase_indices_undersample])
+    undersample_data = data.iloc[undersample_data,:]
+    print("the false transacation proportion is :", len(undersample_data[undersample_data.Revenue==0])/len(undersample_data.Revenue))
+    print("the true transacation proportion is :",len(undersample_data[undersample_data.Revenue==1])/len(undersample_data.Revenue))
+    print("total number of record in resampled data is:",len(undersample_data.Revenue))
+    return(undersample_data)
+
+def oversample(npurchase_indices,purchase_indices,times):#times denote the npurchase data = times*purchase data
+    purchase_indices_oversample = np.array(np.random.choice(purchase_indices,(1*Count_npurchase_transacation),replace=True))
+    oversample_data= np.concatenate([npurchase_indices,purchase_indices_oversample])
+    oversample_data = data.iloc[oversample_data,:]
+    print("the false transacation proportion is :", len(oversample_data[oversample_data.Revenue==0])/len(oversample_data.Revenue))
+    print("the true transacation proportion is :",len(oversample_data[oversample_data.Revenue==1])/len(oversample_data.Revenue))
+    print("total number of record in resampled data is:",len(oversample_data.Revenue))
+    return(oversample_data)    
+
+def model(model,features_train,features_test,labels_train,labels_test, train, labels):
+    clf= model
+    clf.fit(features_train,labels_train.ravel())
+    pred=clf.predict(features_test)
+    cnf_matrix=confusion_matrix(labels_test,pred)
+    print("the recall for this model is :",cnf_matrix[1,1]/(cnf_matrix[1,1]+cnf_matrix[1,0]))
+    plt.figure(1,figsize=(6,3))
+    tpr1 = cnf_matrix[1,1,]
+    tnr1 = cnf_matrix[0,0] # no. of npurchase transaction which are predited npurchase
+    fpr1 = cnf_matrix[0,1] # no of npurchase transaction which are predicted purchase
+    fnr1 = cnf_matrix[1,0] # no of purchase Transaction which are predicted npurchase
+    print("TP",tpr1) # no of purchase transaction which are predicted purchase
+    print("TN",tnr1) # no. of npurchase transaction which are predited npurchase
+    print("FP",fpr1) # no of npurchase transaction which are predicted purchase
+    print("FN",fnr1) # no of purchase Transaction which are predicted npurchase
+    sns.heatmap(cnf_matrix,cmap="coolwarm_r",annot=True,linewidths=0.5,fmt='g')
+    plt.title("Confusion_matrix")
+    plt.xlabel("Predicted_Revenue")
+    plt.ylabel("Real Revenue")
+    plt.show()
+    print("\n----------Revenueification Report------------------------------------")
+    print(classification_report(labels_test,pred))   
+    # This is the AUC
+    #auc = np.trapz(y,x)
+    probs = clf.predict_proba(features_test)
+    preds = probs[:,1]
+    fpr, tpr, threshold = metrics.roc_curve(labels_test, preds)
+    plt.figure(2)
+    roc_auc = metrics.auc(fpr, tpr)
+    plt.title('Receiver Operating Characteristic')
+    plt.legend(loc = 'lower right')
+    plt.plot([0, 1], [0, 1],'r--')
+    plt.xlim([-0.01, 1.01])
+    plt.ylim([0, 1])
+    plt.ylabel('True Positive Rate')
+    plt.xlabel('False Positive Rate')
+    plt.show()
+    print('========== metrics ============')
+    print('AUC         :', roc_auc)    
+    probs = clf.predict_proba(features_test)
+    preds = probs[:,1]
+    fpr, tpr, threshold = metrics.roc_curve(labels_test, preds)
+    plt.figure(2)
+    roc_auc = metrics.auc(fpr, tpr)
+    plt.title('Receiver Operating Characteristic')
+    plt.plot(fpr, tpr, 'b', label = 'AdaBoost UNDERSAMPLE AUC = %0.2f' % roc_auc)
+    plt.legend(loc = 'lower right')
+    plt.plot([0, 1], [0, 1],'r--')
+    plt.xlim([-0.01, 1.01])
+    plt.ylim([0, 1])
+    plt.ylabel('True Positive Rate')
+    plt.xlabel('False Positive Rate')
+    plt.show()
+    print('========== metrics ============')
+    print('AUC         :', roc_auc)
+    cv = cross_val_score(clf, train, labels.ravel(), cv = 10)
+    print('========== cross validation ============')
+    print("Accuracy: ", cv.mean())
+    print("Std: ", cv.std())
+    print('========== metrics ============')
+    accur = (tpr1 + tnr1)/(tpr1+fpr1+fnr1+tnr1)
+    print('Accuracy          : ',accur)
+    precis = tpr1/(tpr1+fpr1)
+    print('Precission        : ',precis)
+    sp = tnr1/(tnr1 + fpr1)
+    print('Specificity       : ',sp)
+    se = tpr1/(tpr1+fnr1)
+    print('Sensitivity/Recall: ',se)
+    f1 = 2*(precis * se)/(precis + se)
+    print('F1 Score          : ',f1)
+    gm = math.sqrt(se * sp)
+    print('G Measure         : ',gm)
+    mcc = matthews_corrcoef(labels_test, pred)
+    print('Mathews Corr Coef : ',mcc)
+    print('===============================')
+    print('TP: ',tpr1,' | TN: ',tnr1)
+    print('FP: ',fpr1,' | FN: ',fnr1)
+    print('===============================')
+    return(cnf_matrix,clf)    
+
+def model1(model,features_train,features_test,labels_train,labels_test, train, labels):
+    clf= model
+    clf.fit(features_train,labels_train.ravel())
+    pred=clf.predict(features_test)
+    cnf_matrix=confusion_matrix(labels_test,pred)
+    print("the recall for this model is :",cnf_matrix[1,1]/(cnf_matrix[1,1]+cnf_matrix[1,0]))
+    plt.figure(1,figsize=(6,3))
+    tpr1 = cnf_matrix[1,1,]
+    tnr1 = cnf_matrix[0,0] 
+    fpr1 = cnf_matrix[0,1] 
+    fnr1 = cnf_matrix[1,0] 
+    print("TP",tpr1) 
+    print("TN",tnr1)
+    print("FP",fpr1) 
+    print("FN",fnr1) 
+    sns.heatmap(cnf_matrix,cmap="coolwarm_r",annot=True,linewidths=0.5,fmt='g')
+    plt.title("Confusion_matrix")
+    plt.xlabel("Predicted_Revenue")
+    plt.ylabel("Real Revenue")
+    plt.show()
+    print("\n----------Revenueification Report------------------------------------")
+    cv = cross_val_score(clf, train, labels.ravel(), cv = 10)
+    print('========== cross validation ============')
+    print("Accuracy: ", cv.mean())
+    print("Std: ", cv.std())
+    print('========== metrics ============')
+    accur = (tpr1 + tnr1)/(tpr1+fpr1+fnr1+tnr1)
+    print('Accuracy          : ',accur)
+    precis = tpr1/(tpr1+fpr1)
+    print('Precission        : ',precis)
+    sp = tnr1/(tnr1 + fpr1)
+    print('Specificity       : ',sp)
+    se = tpr1/(tpr1+fnr1)
+    print('Sensitivity/Recall: ',se)
+    f1 = 2*(precis * se)/(precis + se)
+    print('F1 Score          : ',f1)
+    gm = math.sqrt(se * sp)
+    print('G Measure         : ',gm)
+    mcc = matthews_corrcoef(labels_test, pred)
+    print('Mathews Corr Coef : ',mcc)
+    print('===============================')
+    print('TP: ',tpr1,' | TN: ',tnr1)
+    print('FP: ',fpr1,' | FN: ',fnr1)
+    print('===============================')
+    return(cnf_matrix,clf)    
+
+def data_prepration(x): # preparing data for training and testing as we are going to use different data 
+    #again and again so make a function
+    x_features= x[:,:-1]
+    x_labels=x[:,-1:]
+    x_features_train,x_features_test,x_labels_train,x_labels_test = train_test_split(x_features,x_labels,test_size=0.2)
+    print("length of training data")
+    print(len(x_features_train))
+    print("length of test data")
+    print(len(x_features_test))
+    return(x_features_train,x_features_test,x_labels_train,x_labels_test)
+    
+def data_encoding(Undersample_data):
+    labelencoder_X = LabelEncoder()
+    Undersample_data['Month'] = labelencoder_X.fit_transform(Undersample_data['Month'])
+    Undersample_data['VisitorType'] = labelencoder_X.fit_transform(Undersample_data['VisitorType'])
+    Undersample_data['Weekend'] = labelencoder_X.fit_transform(Undersample_data['Weekend'])
+    Undersample_data = Undersample_data.values
+    onehotencoder = OneHotEncoder(categorical_features = [10,11,12,13,14,15])
+    Undersample_data = onehotencoder.fit_transform(Undersample_data).toarray()
+    Undersample_data = np.delete(Undersample_data,[0,10,18,31,40,60],axis=1)
+    return (Undersample_data)
+
+def smote(data1):
+    data_test_X = data1[:,:-1]
+    data_test_y = data1[:,-1:]
+    os = SMOTE(random_state=0)
+    os_data_X,os_data_y=os.fit_sample(data_test_X,data_test_y)
+    os_data = np.column_stack((os_data_X, os_data_y))
+    return(os_data)
+
+def lda(x_train, y_train, x_test, components):
+    lda = LDA(n_components = components)
+    y_train = y_train[:,0]
+    x_train = lda.fit_transform(x_train, y_train)
+    return (x_train, x_test)    
+    
+def pca(x_train, x_test, components):
+    pca = PCA(n_components = components)
+    x_train = pca.fit_transform(x_train)
+    x_test = pca.transform(x_test)
+    explained_variance = pca.explained_variance_ratio_
+    #print variance of features
+    plt.plot(np.cumsum(explained_variance))
+    plt.title('Resampled Data, all variables')
+    plt.xlabel('number of components')
+    plt.ylabel('cumulative explained variance');
+    return (x_train, x_test, explained_variance)
+
+def kpca(x_train, x_test, cross_val_data, components, kernel):
+    kpca = KernelPCA(n_components = components, kernel = kernel)
+    x_train = kpca.fit_transform(x_train)
+    x_test = kpca.transform(x_test)
+    cross_val = kpca.transform(cross_val_data)
+    ex_var = np.var(x_train, axis=0) 
+    explained_variance = ex_var / np.sum(ex_var)
+    plt.plot(np.cumsum(explained_variance))
+    plt.title('Resampled Data, all variables')
+    plt.xlabel('number of components')
+    plt.ylabel('cumulative explained variance');
+    return (x_train, x_test, cross_val, explained_variance)
+
+
+################## SMOTE SAMPLING ##########################################  
+
+# data preparation
+data1 = data_encoding(data)
+smote_data = smote(data1)
+smote_over_train,smote_over_test,smote_over_labels_train,smote_over_labels_test=data_prepration(smote_data)
+#data_features_train,data_features_test,data_labels_train,data_labels_test=data_prepration(data1) 
+
+
+sc_X = StandardScaler()
+smote_over_train = sc_X.fit_transform(smote_over_train)
+smote_over_test= sc_X.transform(smote_over_test) 
+
+# k-fold cross validation on whole SMOTE data
+cross_val_feat = smote_data[:,:-1]
+cross_val_label = smote_data[:,-1:]
+
+cross_val_feat = sc_X.transform(cross_val_feat)
+
+#Kernel PCA pass (train data set, test data set, number of components, kernel used surounded by quotes)
+smote_over_train, smote_over_test, cross_val_feat1, pca_rate = kpca(smote_over_train, smote_over_test, cross_val_feat, 38, 'rbf')
+
+# Classifiers to be used
+clf = SVC(kernel='rbf',C = 4, gamma=0.3)
+clf = KNeighborsClassifier(n_neighbors = 3, weights = 'distance', metric = 'minkowski', p = 2)
+clf = DecisionTreeClassifier()
+clf = RandomForestClassifier(n_estimators=110)    
+clf = ExtraTreesClassifier(n_estimators = 2000)
+bs = RandomForestClassifier()
+clf = AdaBoostClassifier(base_estimator = bs, n_estimators=123, algorithm = 'SAMME') 
+
+import time
+start = time.time()
+cnf,clf = model(clf,smote_over_train,smote_over_test,smote_over_labels_train,smote_over_labels_test, cross_val_feat, cross_val_label)
+elapsed_time_fl = (time.time() - start) 
+print(elapsed_time_fl)
+
+################## OVER SAMPLING ###############################################
+
+# use to crate data set oversampling positive class at random with replacement
+over_data = oversample(npurchase_indices,purchase_indices,1)
+over_data = data_encoding(over_data)
+#split data into train and test
+over_data_train,over_data_test,over_labels_train,over_labels_test=data_prepration(over_data)
+
+# scale data
+
+over_data_train = sc_X.transform(over_data_train)
+over_data_test= sc_X.transform(over_data_test) 
+
+# k-fold cross validation on whole oversample data
+cross_val_feat2 = over_data[:,:-1]
+cross_val_label2 = over_data[:,-1:]
+
+cross_val_feat2 = sc_X.transform(cross_val_feat2)
+
+
+over_data_train1, over_data_test1, cross_val_feat1, pca_rate2 = kpca(over_data_train, over_data_test, cross_val_feat2, 38, 'rbf')
+
+#Classifiers to use
+clf = SVC(kernel='rbf',C=10,gamma=1)
+clf = KNeighborsClassifier(n_neighbors = 3, weights = 'distance', metric = 'minkowski', p = 2)
+clf = DecisionTreeClassifier()
+clf = RandomForestClassifier(n_estimators=123)    
+clf = ExtraTreesClassifier(n_estimators =144)
+bs = RandomForestClassifier()
+clf = AdaBoostClassifier(base_estimator = bs, n_estimators=168, algorithm = 'SAMME') #2023, 63 11,2072
+
+start = time.time()
+#pass data to classifier and get results
+cnf,clf = model(clf,over_data_train1,over_data_test1, over_labels_train, over_labels_test, cross_val_feat2, cross_val_label2)
+elapsed_time_fl = (time.time() - start) 
+print(elapsed_time_fl)
+
+############# further optimisation ###############
+
+#kpca1 = KernelPCA(n_components = 38, kernel = 'rbf')
+#extraTrees = ExtraTreesClassifier(n_estimators = 168)
+#clf = Pipeline(steps=[('kpca', kpca1), ('extraTrees', extraTrees)])
+#cnf,clf = model(clf,over_data_train1,over_data_test1,over_labels_train, over_labels_test)
+
+
+############## Grid Search ####################
+
+clf = SVC(kernel='rbf')
+# Grid search with kpca and classifier
+parameters = {"n_estimators":[120,121,122,123,124,125,126,127,128,129,130]}
+grid_search = GridSearchCV(clf,
+                          parameters,
+                          scoring = 'accuracy',
+                          cv = 10,
+                          n_jobs = -1,
+                          verbose=2)
+grid_search = grid_search.fit(over_data_train, over_labels_train)
+best_accuracy = grid_search.best_score_
+best_parameters = grid_search.best_params_
+
+
+
+
+
+################## Under SAMPLING ###############################################
+
+# Undersample data preparation  
+
+under_data = undersample(npurchase_indices,purchase_indices,1)
+under_data1 = data_encoding(under_data)
+
+# Ensuring to retrieve all features with while loop
+
+while (len(under_data1[1,:]) <= 68):
+    under_data = undersample(npurchase_indices,purchase_indices,1)
+    under_data1 = data_encoding(under_data)
+
+
+under_data_train,under_data_test,under_labels_train,under_labels_test=data_prepration(under_data1)
+
+#Scale the data
+
+under_data_train = sc_X.transform(under_data_train)
+under_data_test= sc_X.transform(under_data_test)    
+
+# k-fold cross validation on whole oversample data
+cross_val_feat3 = under_data1[:,:-1]
+cross_val_label3 = under_data1[:,-1:]
+cross_val_feat3 = sc_X.transform(cross_val_feat3)
+
+
+under_data_train1, under_data_test1, cross_val_feat1, pca_rate = kpca(under_data_train, under_data_test, cross_val_feat3, 38, 'rbf')
+
+############## Grid Search ####################
+parameters = {"C":[1,2,3,4,5,6],"gamma":[0.01,1,2,3,4,0.02,0.03]}
+grid_search = GridSearchCV(clf,
+                          parameters,
+                          scoring = 'accuracy',
+                          cv = 10,
+                          n_jobs = -1,
+                          verbose=2)
+grid_search = grid_search.fit(under_data_train1, under_labels_train)
+best_accuracy = grid_search.best_score_
+best_parameters = grid_search.best_params_
+
+
+# Classifiers to be used
+clf = SVC(kernel='rbf',C =4,gamma =1)
+clf = KNeighborsClassifier(n_neighbors = 5, weights = 'distance', metric = 'minkowski', p = 2)#clf = DecisionTreeClassifier()
+clf = RandomForestClassifier(n_estimators=145)    
+clf = ExtraTreesClassifier(n_estimators=162)
+bs = RandomForestClassifier()
+clf = AdaBoostClassifier(base_estimator = bs, n_estimators=84, algorithm = 'SAMME') #2023, 63 11,2072
+
+
+start = time.time()
+# running classifiers and validation results
+cnf,clf = model(clf,under_data_train1,under_data_test1,under_labels_train,under_labels_test, cross_val_feat3, cross_val_label3)
+elapsed_time_fl = (time.time() - start) 
+print(elapsed_time_fl)
+
