@@ -61,7 +61,7 @@ def ANN(x_train_data,y_train_labels,x_test_data,y_test_labels,input_shape):
     pred.argmax()
     return history,loss,accuracy,model
 
-def CNN_struct(x_test_data,x_train_data,model):
+def CNN_struct(x_test_data,x_train_data):
     x_test_data = x_test_data.reshape(x_test_data.shape[0], 28, 28, 1) # reshapping data CNN expects 4 by 4 array
     x_train_data = x_train_data.reshape(x_train_data.shape[0], 28, 28, 1)
     input_shape = (28, 28, 1)
