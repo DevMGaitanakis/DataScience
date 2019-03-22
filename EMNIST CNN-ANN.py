@@ -38,6 +38,7 @@ def replace(labels):
     for i in range(np.size(np.unique(labels))):
         labels = np.where(labels == i ,replace[i], labels)
     return labels
+
 def ANN_struct(x_test_data,x_train_data):
     x_test_data = x_test_data.reshape(x_test_data.shape[0], 784) # reshapping data CNN expects 4 by 4 array
     x_train_data = x_train_data.reshape(x_train_data.shape[0], 784)
