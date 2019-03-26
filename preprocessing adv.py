@@ -3,6 +3,8 @@
 Created on Mon Mar 18 09:14:07 2019
 @author: fro
 """
+
+# import the necessary packages
 import numpy as np
 import cv2
 import imutils
@@ -79,7 +81,7 @@ for i in range (0,len(nlist),2):
     except IndexError:
                 pass   
 
-'''
+
 dilate2= dilate
 image = cv2.cvtColor(dilate2,cv2.COLOR_GRAY2BGR)
 #dilate2 = cv2.rectangle(dilate2,pt1=(100,100),pt2=(100,100),color=(0,255,0),thickness=100)
@@ -88,25 +90,99 @@ pos=0
 row=1  
 notempty=[]
 notemptySize=0
-inc=0
 if len(nlist) < 3 and len(letterpos)==1 :
         for i in range (0,len(letterpos[1]),2):
             print(i)
             try:
-                for z in range (0,len(letterpos),2):
+                for z in range (0,4,2):
                    print("z = ",z)
                    rowtop,rowbottom = nlist[0],nlist[1]
-                   letterfront,letterend= letterpos[row][inc],letterpos[row][inc+1]
+                   letterfront,letterend= letterpos[row][z],letterpos[row][z+1]
                    new = np.array(dilate[rowtop:rowbottom,letterfront:letterend])
                    noUse,trimmed = segmentation(new)
                    notempty.append(trimmed)
-                   #if len(notempty[notemptySize]) == 0:
-                       #print('yes')
+                   if len(notempty[notemptySize]) == 0:
+                       cv2.rectangle(image,pt1=(letterpos[row][z],nlist[i]),pt2=(letterpos[row][z+1],nlist[1]),color=(0,255,0),thickness=2)
+                   else:
+                       new = new[trimmed[0]:trimmed[1],:]
+                       cv2.rectangle(image,pt1=(letterpos[row][z],nlist[i]+notempty[1][0]),pt2=(letterpos[row][z+1],nlist[1]-abs(notempty[1][1] - len(noUse))),color=(0,255,0),thickness=2)
+                   new = np.pad(new, (5, 5), 'minimum')
+                   resized_image = cv2.resize(new, (28, 28))
+                   resized_image2 = np.expand_dims(resized_image, axis=0)
+                   all_letters = np.append(all_letters,resized_image2,axis=0)
+                   notemptySize+=1
+            except IndexError:
+                            pass           
+            pos+=2
+            
+            if len(letterpos)> 1:
+                row=1 
+        all_letters = np.delete(all_letters,[0],axis=0)
+plt.imshow(image)
+'''
+
+
+
+
+
+
+dilate2= dilate
+image = cv2.cvtColor(dilate2,cv2.COLOR_GRAY2BGR)
+#dilate2 = cv2.rectangle(dilate2,pt1=(100,100),pt2=(100,100),color=(0,255,0),thickness=100)
+all_letters = np.zeros(shape=(1,28,28))
+row=len(letterpos) 
+pos=0  
+notempty=[]
+notemptySize=0
+inc=0
+if len(nlist) < 3 and len(letterpos)==1 :
+
+    for i in range (0,len(letterpos[1]),2):
+        try:
+            for z in range (0,len(letterpos),2):
+               print("z = ",z)
+               rowtop,rowbottom = nlist[0],nlist[1]
+               letterfront,letterend= letterpos[row][pos],letterpos[row][pos+1]
+               new = np.array(dilate[rowtop:rowbottom,letterfront:letterend])
+               noUse,trimmed = segmentation(new)
+               notempty.append(trimmed)
+               if len(notempty[notemptySize]) == 0:
+                   #print('yes')
                    cv2.rectangle(image,pt1=(letterpos[1][pos],nlist[0]),pt2=(letterpos[1][pos+1],nlist[1]),color=(0,255,0),thickness=2)
-                   #else:
-                       #print('no')
-                       #new = new[trimmed[0]:trimmed[1],:]
-                       #cv2.rectangle(image,pt1=(letterpos[1][pos],nlist[0]-300),pt2=(letterpos[1][pos+1],nlist[1]-abs(notempty[inc][1] - len(noUse))),color=(0,255,0),thickness=2)
+               else:
+                   print('no')
+                   new = new[trimmed[0]:trimmed[1],:]
+                   cv2.rectangle(image,pt1=(letterpos[1][pos],nlist[0]+notempty[inc][0]),pt2=(letterpos[1][pos+1],nlist[1]-abs(notempty[inc][1] - len(noUse))),color=(0,255,0),thickness=2)
+               new = np.pad(new, (5, 5), 'minimum')
+               resized_image = cv2.resize(new, (28, 28))
+               resized_image2 = np.expand_dims(resized_image, axis=0)
+               all_letters = np.append(all_letters,resized_image2,axis=0)
+               notemptySize+=1
+        except IndexError:
+                        pass           
+        pos+=2
+        inc+=1
+        if len(letterpos)> 1:
+            row=1 
+        all_letters = np.delete(all_letters,[0],axis=0)
+else:
+    for a in range(1,len(letterpos)+1):
+        for i in range (0,len(letterpos[a]),2):
+            try:
+                for z in range (0,len(letterpos),2):
+                   print("z = ",z)
+                   #rowtop,rowbottom = nlist[2],nlist[3]
+                   letterfront,letterend= letterpos[len(letterpos)][pos],letterpos[len(letterpos)][pos+1]
+                   new = np.array(dilate[rowtop:rowbottom,letterfront:letterend])
+                   noUse,trimmed = segmentation(new)
+                   notempty.append(trimmed)
+                   if len(notempty[notemptySize]) == 0:
+                       print('yes')
+                       cv2.rectangle(image,pt1=(letterpos[2][pos],nlist[2]),pt2=(letterpos[2][pos+1],nlist[3]),color=(0,255,0),thickness=2)
+                   else:
+                       print('no')
+                       new = new[trimmed[0]:trimmed[1],:]
+                       cv2.rectangle(image,pt1=(letterpos[2][pos],nlist[2]+notempty[inc][0]),pt2=(letterpos[2][pos+1],nlist[3]-abs(notempty[inc][1] - len(noUse))),color=(0,255,0),thickness=2)
                    new = np.pad(new, (5, 5), 'minimum')
                    resized_image = cv2.resize(new, (28, 28))
                    resized_image2 = np.expand_dims(resized_image, axis=0)
@@ -119,40 +195,19 @@ if len(nlist) < 3 and len(letterpos)==1 :
             if len(letterpos)> 1:
                 row=1 
         all_letters = np.delete(all_letters,[0],axis=0)
-else:
-        for i in range (0,len(letterpos),2):
-            print(i)
-            try:
-                for z in range (0,len(letterpos[i]),2):
-                   print("z = ",z)
-                   rowtop,rowbottom = nlist[0],nlist[1]
-                   letterfront,letterend= letterpos[row][inc],letterpos[row][inc+1]
-                   new = np.array(dilate[rowtop:rowbottom,letterfront:letterend])
-                   noUse,trimmed = segmentation(new)
-                   notempty.append(trimmed)
-                   #if len(notempty[notemptySize]) == 0:
-                       #print('yes')
-                   cv2.rectangle(image,pt1=(letterpos[1][pos],nlist[0]),pt2=(letterpos[1][pos+1],nlist[1]),color=(0,255,0),thickness=2)
-                   #else:
-                       #print('no')
-                       #new = new[trimmed[0]:trimmed[1],:]
-                       #cv2.rectangle(image,pt1=(letterpos[1][pos],nlist[0]-300),pt2=(letterpos[1][pos+1],nlist[1]-abs(notempty[inc][1] - len(noUse))),color=(0,255,0),thickness=2)
-                   new = np.pad(new, (5, 5), 'minimum')
-                   resized_image = cv2.resize(new, (28, 28))
-                   resized_image2 = np.expand_dims(resized_image, axis=0)
-                   all_letters = np.append(all_letters,resized_image2,axis=0)
-                   notemptySize+=1
-            except IndexError:
-                            pass           
-            pos+=2
-            inc+=1
-            if len(letterpos)> 1:
-                row=1 
-        all_letters = np.delete(all_letters,[0],axis=0)    
 plt.imshow(image)
 #-notempty[1][0]
 
 
+notempty = []
+
+
+for i in range (len(all_letters)):
+    
+    new=all_letters[i].reshape(28,28).astype(np.uint8)
+    if np.sum(new) == 0:
+        print('ye')
+    else:
 
 
 
@@ -177,11 +232,6 @@ plt.imshow(image)
 
 
 
-
-if len(nlist) == 2:
-    for i in range (0,len(letterpos[1]),2):
-        print(i)
-        
     
 cv2.rectangle(image,pt1=(letterpos[1][2]-notempty[1][0],nlist[0]),pt2=(letterpos[1][3],nlist[1]-notempty[1][1]),color=(0,255,0),thickness=2)
 #dilate2 = np.resize(dilate2, (dilate2[0].size, dilate2[1].size, 3))
