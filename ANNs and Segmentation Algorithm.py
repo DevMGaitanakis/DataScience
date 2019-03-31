@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Mar 28 20:03:38 2019
-
-@author: andri
-"""
-# import libraries
 import keras
 import tensorflow as tf
 from matplotlib import pyplot as plt
@@ -24,11 +17,6 @@ from sklearn import metrics
 import seaborn as sns 
 import time
 import cv2
-'''
-uncomment the below line for plots to be displayed outside Ipython console if using spyder
-'''
-#%matplotlib auto
-
 # display sample images from inported emnist dataset
 def showcontents(imgs_dataset):
     for i in range(64):
