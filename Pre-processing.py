@@ -8,9 +8,29 @@ Created on Mon Jun  3 12:49:36 2019
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns
+
 %matplotlib qt
 data = pd.read_csv('Etnapart2.csv').to_numpy(dtype='float32')
 dataset =np.flipud(data)
+
+def data_missing(dataset):
+    counter = 1
+    months_count=0
+    for i in range(len(new_dataset)):
+        while counter != new_dataset[i,1]:
+            if counter == 12:
+                counter =1
+            else:
+                months_count +=1
+                counter+=1
+                print(new_dataset[i,:])
+        if i+1 > len(new_dataset)-1:
+            break
+        elif counter+1 == new_dataset[i+1,1]:
+            counter+=1
+    return months_count
+    
 def entries_summation(dataset):
     r=0
     entries_to_sum,to_sum1,to_sum2= [],[],[]
@@ -47,7 +67,7 @@ def entries_summation(dataset):
     
 new_dataset = entries_summation(dataset)
 
-new_dataset = np.array(new_dataset,dtype=np.object)
+new_dataset = np.array(new_dataset,dtype=float)
 
 for i in range(len(new_dataset)):
     new_dataset[i,0] = str(int(new_dataset[i,0])) +'-'+ str(int(new_dataset[i,1]))+'-'+str(int(new_dataset[i,2]))
@@ -67,8 +87,6 @@ new_dataset = new_dataset.set_index(0)
 to_train= new_dataset.loc[:'2017-07-12']
 to_test= new_dataset.loc['2018-08-07':]
 
-
-import seaborn as sns
 sns.set(rc={'figure.figsize':(11, 4)})
 new_dataset[1].plot(linewidth=0.5);
 
@@ -95,8 +113,6 @@ X,y =  split_sequence(sequence,n_steps)
 
 n_features = 1
 X = X.reshape((X.shape[0],X.shape[1],n_features))
-
-
 
 model = Sequential()
 model.add(LSTM(1, return_sequences=True,
