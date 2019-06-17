@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 %matplotlib qt
-data = pd.read_csv('Etnapart2.csv').to_numpy(dtype='float32')
+data = pd.read_csv('Piton.csv').to_numpy(dtype='float32')
 dataset =np.flipud(data)
 
 def data_missing(dataset):
@@ -66,8 +66,9 @@ def entries_summation(dataset):
     return (new_dataset)
     
 new_dataset = entries_summation(dataset)
-
-new_dataset = np.array(new_dataset,dtype=float)
+new_dataset = np.array(new_dataset,dtype=object)
+#new_dataset = pd.DataFrame(new_dataset)
+#new_dataset.to_csv("ErtaAleDetailed.csv")
 
 for i in range(len(new_dataset)):
     new_dataset[i,0] = str(int(new_dataset[i,0])) +'-'+ str(int(new_dataset[i,1]))+'-'+str(int(new_dataset[i,2]))
@@ -77,18 +78,19 @@ new_dataset = np.delete(new_dataset, 1, 1)
 new_dataset = np.delete(new_dataset, 2, 1) 
 new_dataset = pd.DataFrame(new_dataset)
 
-
-
 new_dataset[0] = pd.to_datetime(new_dataset[0]) # Covenrt to Date Time
 new_dataset[1] = new_dataset[1].astype(float) # Conver from object to float
 new_dataset.dtypes
+
 new_dataset = new_dataset.set_index(0)
+
+sns.set(rc={'figure.figsize':(11, 4)})
+new_dataset[1].plot(linewidth=0.5); #Plotting the Data
 
 to_train= new_dataset.loc[:'2017-07-12']
 to_test= new_dataset.loc['2018-08-07':]
 
-sns.set(rc={'figure.figsize':(11, 4)})
-new_dataset[1].plot(linewidth=0.5);
+#####Prediction model Starts Here#####
 
 from keras.models import Sequential
 from keras.layers import LSTM
