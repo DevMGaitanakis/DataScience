@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 %matplotlib qt
-data = pd.read_csv('Piton.csv').to_numpy(dtype='float32')
+data = pd.read_csv('kilauea.csv').to_numpy(dtype='float32')
 dataset =np.flipud(data)
 
 def data_missing(dataset):
@@ -66,7 +66,68 @@ def entries_summation(dataset):
     return (new_dataset)
     
 new_dataset = entries_summation(dataset)
-new_dataset = np.array(new_dataset,dtype=object)
+new_dataset = np.array(new_dataset,dtype=float)
+
+
+#####Oversampling Starts Here#######
+
+
+for i in range(len(new_dataset)):
+    if new_dataset[i][0] == 2013:
+        start=i
+        break
+for i in range(len(new_dataset)):
+    if new_dataset[i][0] == 2018:
+        end=i
+        break
+
+dataset_to_repair = new_dataset[start:end,:]
+
+days = 1
+dataset_repaired= []
+for i in range(len(dataset_to_repair)):
+    if i+1 > len(dataset_to_repair)-1:
+        break
+    if dataset_to_repair[i,1] == 2:
+        month_days = 28
+    elif dataset_to_repair[i,1] % 2 ==0:
+        month_days = 30
+    else:
+        month_days = 31
+  
+    if dataset_to_repair[i,2] == days:
+        dataset_repaired.append(dataset_to_repair[i,:])
+        print('Days loop1 ',days)
+        days+=1
+    elif dataset_to_repair[i,2] != days:
+        gap =  dataset_to_repair[i,2] - days
+        for z in range(int(gap)):
+            if z==0:
+                print('Mean Func',dataset_to_repair[i-1,3])
+                print('To add',dataset_to_repair[i,3])
+                mean_flunct =  (dataset_to_repair[i,3] +  dataset_to_repair[i-1,3])/2
+                mean_heat =  (dataset_to_repair[i,4] +  dataset_to_repair[i-1,4])/2         
+                to_insert = np.array([[dataset_to_repair[i,0], dataset_to_repair[i,1],days,mean_flunct,mean_heat ]], np.float)     
+                dataset_repaired.append(to_insert)
+                days+=1
+            else:
+
+                mean_flunct =  (mean_flunct +  dataset_to_repair[i,3])/2
+                mean_heat =  (mean_heat +  dataset_to_repair[i+1,3])/2         
+                to_insert = np.array([[dataset_to_repair[i,0], dataset_to_repair[i,1],days,mean_flunct,mean_heat ]], np.float)     
+                dataset_repaired.append(to_insert)
+                days+=1
+            print(gap)
+        gap=0
+        days+=1
+        dataset_repaired.append(dataset_to_repair[i,:])
+        print(dataset_to_repair[i,:])
+        print(gap)
+    if days > month_days:
+        days=1
+
+dataseta = np.array(dataset_repaired[0].reshape(-1,len(dataset_repaired[0])))
+
 #new_dataset = pd.DataFrame(new_dataset)
 #new_dataset.to_csv("ErtaAleDetailed.csv")
 
