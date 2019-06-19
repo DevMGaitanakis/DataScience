@@ -65,68 +65,102 @@ def entries_summation(dataset):
             new_dataset.append(dataset[i])
     return (new_dataset)
     
+
+def dataoversample(cutstart,cutend,dataset):  
+    for i in range(len(new_dataset)):
+        if new_dataset[i][0] == cutstart:
+            start=i
+            break
+    for i in range(len(new_dataset)):
+        if new_dataset[i][0] == cutend:
+            end=i
+            break
+    dataset_to_repair = new_dataset[start:end,:]
+    days = 1
+    month = 1
+    happened = False
+    dataset_repaired= []
+    for i in range(80):
+        if i+1 > len(dataset_to_repair)-1:
+            break
+        if dataset_to_repair[i,1] == 2:
+            month_days = 28
+        elif dataset_to_repair[i,1] % 2 ==0: #Treating each month different
+            month_days = 30
+        else:
+            month_days = 31
+            
+        if dataset_to_repair[i,2] == days:
+            dataset_repaired.append(dataset_to_repair[i,:]) #if Day Exist store the record
+            print('Does Exists day is',days,'Data are',dataset_to_repair[i,:])
+            days+=1
+        elif dataset_to_repair[i,2] != days:
+            print(days)
+            if dataset_to_repair[i,1] != month:
+                gap = days - month_days 
+                for c in range(gap):
+                    print(c)
+                    if c == 0:
+                        mean_flunct =  (dataset_to_repair[i,3] +  dataset_to_repair[i-1,3])/2
+                        mean_heat =  (dataset_to_repair[i,4] +  dataset_to_repair[i-1,4])/2         # if one day is missing just take the mean
+                        to_insert = np.array([[dataset_to_repair[i,0], dataset_to_repair[i,1],days,mean_flunct,mean_heat ]], np.float)
+                        dataset_repaired.append(to_insert)
+                        happened = True
+                    else:
+                        mean_flunct =  (mean_flunct +  dataset_to_repair[i,3])/2
+                        mean_heat =  (mean_heat +  dataset_to_repair[i+1,3])/2    #if there are more days adjust the mean accordingly
+                        to_insert = np.array([[dataset_to_repair[i,0], dataset_to_repair[i,1],days,mean_flunct,mean_heat ]], np.float)     
+                        dataset_repaired.append(to_insert)
+                        days+=1
+            else:
+                gap =  dataset_to_repair[i,2] - days #if not get the difference between days missing
+                print('Gap is',gap)
+                print(month)
+            for z in range(int(gap)):
+                if z==0:
+                    mean_flunct =  (dataset_to_repair[i,3] +  dataset_to_repair[i-1,3])/2
+                    mean_heat =  (dataset_to_repair[i,4] +  dataset_to_repair[i-1,4])/2         # if one day is missing just take the mean
+                    to_insert = np.array([[dataset_to_repair[i,0], dataset_to_repair[i,1],days,mean_flunct,mean_heat ]], np.float)
+                    dataset_repaired.append(to_insert)
+                    print('Does not Exists day is',days,'Data are',dataset_to_repair[i,:])
+                    days+=1
+                else:
+                    print('Does not Exists day is',days,'Data are',dataset_to_repair[i,:])
+                    mean_flunct =  (mean_flunct +  dataset_to_repair[i,3])/2
+                    mean_heat =  (mean_heat +  dataset_to_repair[i+1,3])/2    #if there are more days adjust the mean accordingly
+                    to_insert = np.array([[dataset_to_repair[i,0], dataset_to_repair[i,1],days,mean_flunct,mean_heat ]], np.float)     
+                    dataset_repaired.append(to_insert)
+                    days+=1
+                print(gap)
+            gap=0
+            days+=1
+            if happened:
+                print('It HAppened')
+                i = -1
+                days+=1
+                happened = False
+            else:
+                dataset_repaired.append(dataset_to_repair[i,:]) #append the current record.   
+            print(dataset_to_repair[i,:])
+            print(gap)
+            
+        if days > month_days: #Change months accordingly
+            days=1
+            month+=1
+        if month > 12:
+            month = 0
+    return dataset_repaired
+
+
+#Sumation of Hotspots
 new_dataset = entries_summation(dataset)
 new_dataset = np.array(new_dataset,dtype=float)
 
+#Replacing missing values
+dataset_repaired = dataoversample(2013,2018,new_dataset)
 
-#####Oversampling Starts Here#######
+#Save Dataset into a CSV
 
-
-for i in range(len(new_dataset)):
-    if new_dataset[i][0] == 2013:
-        start=i
-        break
-for i in range(len(new_dataset)):
-    if new_dataset[i][0] == 2018:
-        end=i
-        break
-
-dataset_to_repair = new_dataset[start:end,:]
-
-days = 1
-dataset_repaired= []
-for i in range(len(dataset_to_repair)):
-    if i+1 > len(dataset_to_repair)-1:
-        break
-    if dataset_to_repair[i,1] == 2:
-        month_days = 28
-    elif dataset_to_repair[i,1] % 2 ==0:
-        month_days = 30
-    else:
-        month_days = 31
-  
-    if dataset_to_repair[i,2] == days:
-        dataset_repaired.append(dataset_to_repair[i,:])
-        print('Days loop1 ',days)
-        days+=1
-    elif dataset_to_repair[i,2] != days:
-        gap =  dataset_to_repair[i,2] - days
-        for z in range(int(gap)):
-            if z==0:
-                print('Mean Func',dataset_to_repair[i-1,3])
-                print('To add',dataset_to_repair[i,3])
-                mean_flunct =  (dataset_to_repair[i,3] +  dataset_to_repair[i-1,3])/2
-                mean_heat =  (dataset_to_repair[i,4] +  dataset_to_repair[i-1,4])/2         
-                to_insert = np.array([[dataset_to_repair[i,0], dataset_to_repair[i,1],days,mean_flunct,mean_heat ]], np.float)     
-                dataset_repaired.append(to_insert)
-                days+=1
-            else:
-
-                mean_flunct =  (mean_flunct +  dataset_to_repair[i,3])/2
-                mean_heat =  (mean_heat +  dataset_to_repair[i+1,3])/2         
-                to_insert = np.array([[dataset_to_repair[i,0], dataset_to_repair[i,1],days,mean_flunct,mean_heat ]], np.float)     
-                dataset_repaired.append(to_insert)
-                days+=1
-            print(gap)
-        gap=0
-        days+=1
-        dataset_repaired.append(dataset_to_repair[i,:])
-        print(dataset_to_repair[i,:])
-        print(gap)
-    if days > month_days:
-        days=1
-
-dataseta = np.array(dataset_repaired[0].reshape(-1,len(dataset_repaired[0])))
 
 #new_dataset = pd.DataFrame(new_dataset)
 #new_dataset.to_csv("ErtaAleDetailed.csv")
