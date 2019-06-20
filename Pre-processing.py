@@ -81,33 +81,40 @@ def dataoversample(cutstart,cutend,dataset):
     happened = False
     gap=0
     dataset_repaired= []
-    for i in range(95):
+    for i in range(len(dataset_to_repair)):
         if i+1 > len(dataset_to_repair)-1:
             break
         
         if dataset_to_repair[i,1] == 2:
             month_days = 28
-        elif dataset_to_repair[i,1] % 2 ==0: #Treating each month different
+        elif dataset_to_repair[i,1] == 8 or 10:
+            month_days = 31   
+        elif dataset_to_repair[i,1] == 9:
+            month_days = 30     
+        elif dataset_to_repair[i,1] % 2 == 0: #Treating each month different
             month_days = 30
         else:
             month_days = 31
-            
+        if  dataset_to_repair[i,0] % 4 == 0 and dataset_to_repair[i,1] == 2:
+            month_days = 29
+        
+        print('Month =',month,'It Has',month_days)
         if dataset_to_repair[i,2] == days:
             dataset_repaired.append(dataset_to_repair[i,:]) #if Day Exist store the record
-            print('Does Exists day is',days,'Data to store is ',dataset_to_repair[i,:])
+            print('Does Exists day is',days,'/',month_days,'Data to store is ',dataset_to_repair[i,:])
             days+=1
         elif dataset_to_repair[i,2] != days:
             if dataset_to_repair[i,1] != month:
                 #print('not equal month')
-                gap = abs(days - month_days) 
-                #print('Gap is',gap)
+                gap = abs(days - month_days)+1 
+                print('Gap is',gap)
                 for c in range(gap):
                     if c == 0:
                         mean_flunct =  (dataset_to_repair[i,3] +  dataset_to_repair[i-1,3])/2
                         mean_heat =  (dataset_to_repair[i,4] +  dataset_to_repair[i-1,4])/2         # if one day is missing just take the mean
                         to_insert = np.array([[dataset_to_repair[i,0], month,days,mean_flunct,mean_heat ]], np.float)
                         dataset_repaired.append(to_insert)
-                        print('Data stored one loop = ',to_insert)
+                        print('Does not exist END',days,'/',month_days,'Data to store is ',to_insert)
                         happened = True
                         days+=1
                     else:
@@ -115,17 +122,8 @@ def dataoversample(cutstart,cutend,dataset):
                         mean_heat =  (mean_heat +  dataset_to_repair[i+1,3])/2    #if there are more days adjust the mean accordingly
                         to_insert = np.array([[dataset_to_repair[i,0], month,days,mean_flunct,mean_heat ]], np.float)  
                         dataset_repaired.append(to_insert)
-                        print('Data stored multiple loop = ',to_insert)
+                        print('Does not exist Multiple END',days,'/',month_days,'Data to store is ',to_insert)
                         days+=1
-                        
-            if dataset_to_repair[i-1,1] == 2:
-                month_days = 28
-            elif dataset_to_repair[i-1,1] % 2 ==0: #Treating each month different
-                month_days = 30
-            else:
-                month_days = 31
-                
-                
             if dataset_to_repair[i,1] == month:
                 if  happened == True:  
                     gap =  dataset_to_repair[i,2] -2 #if not get the difference between days missing
@@ -138,35 +136,33 @@ def dataoversample(cutstart,cutend,dataset):
                         mean_heat =  (dataset_to_repair[i,4] +  dataset_to_repair[i-1,4])/2         # if one day is missing just take the mean
                         to_insert = np.array([[dataset_to_repair[i,0], dataset_to_repair[i,1],days,mean_flunct,mean_heat ]], np.float)
                         dataset_repaired.append(to_insert)
-                        print('Does not Exists day is',days,'Data are',dataset_to_repair[i,:])
+                        print('Does not exist IN',days,'/',month_days,'Data to store is ',to_insert)
                         days+=1
                     else:
-                        print('Does not Exists day is',days,'Data are',dataset_to_repair[i,:])
+                        print('Does not exist IN Multiple',days,'/',month_days,'Data to store is ',to_insert)
                         mean_flunct =  (mean_flunct +  dataset_to_repair[i,3])/2
                         mean_heat =  (mean_heat +  dataset_to_repair[i+1,3])/2    #if there are more days adjust the mean accordingly
                         to_insert = np.array([[dataset_to_repair[i,0], dataset_to_repair[i,1],days,mean_flunct,mean_heat ]], np.float)     
                         dataset_repaired.append(to_insert)
                         days+=1   
                 gap=0
-                days+=1
                 if happened == True:
-                    print('inside happened')
-                    dataset_repaired.append(dataset_to_repair[i-1,:]) 
+                    print('inside happened current record',dataset_to_repair[i,:])
+                    print('Records Stored',dataset_to_repair[i-1,:],dataset_to_repair[i,:])
+                    dataset_repaired.append(dataset_to_repair[i-1,:])
+                    dataset_repaired.append(dataset_to_repair[i,:])
                     happened = False
+                    days+=1
                 else:
                     dataset_repaired.append(dataset_to_repair[i,:]) #append the current record.   
                     print('Data Appended outside loops',dataset_to_repair[i,:])
-                
-            print('Day is',days)
-            if happened:
-                print('happened')
-            print('Days of the month are',month_days)
-            print('Variable in memory',dataset_to_repair[i,:])
+                    days+=1
+
         if days > month_days: #Change months accordingly
             days=1
             month+=1
         if month > 12:
-            month = 0
+            month = 1
     return dataset_repaired
 
  
