@@ -215,39 +215,12 @@ to_train= dataset_repaired.loc[:,:]
 #to_test= new_dataset.loc['2018-08-07':]
 
 #####Prediction model Starts Here#####
-'''
-from keras.models import Sequential
-from keras.layers import LSTM
-from keras.layers import Dense
 
-def split_sequence(sequence,n_steps):
-    X,y = list(),list()
-    for i in range(len(sequence)):
-        end_ix = i + n_steps
-        if end_ix > len(sequence)-1:
-            break
-        seq_x, seq_y = sequence[i:end_ix],sequence[end_ix]
-        X.append(seq_x)
-        y.append(seq_y)
-    return np.array(X), np.array(y)
-'''
+
+
+
 
 '''
-#Splitting into training and test set
-training_seq = int(len(sequence)*0.80)
-test_seq = len(sequence) - training_seq
-train,test = sequence[0:training_seq,:],sequence[training_seq:len(sequence),:]
-
-#Transforming the dataset into timesteps selected
-n_steps = 14
-trainX,trainy =  split_sequence(train,n_steps)
-testX,testy = split_sequence(test,n_steps)
-
-#Transforming into the format expected from the LSTM
-n_features = 1
-trainX = trainX.reshape((trainX.shape[0],trainX.shape[1],n_features))
-testX = testX.reshape((testX.shape[0],testX.shape[1],n_features))
-
 #Build and train the neural network
 model = Sequential()
 model.add(LSTM(20, return_sequences=True,input_shape=(n_steps, 1)))  # returns a sequence of vectors of dimension 32
@@ -283,6 +256,7 @@ testPredictPlot[:,:] = np.nan
 testPredictPlot[len(trainPredict)+(n_steps*2)+1:len(dataset_repaired)-1,:] = testPredict
 
 '''
+
 sequence = np.array(to_train)
 
 # length of input
@@ -302,105 +276,56 @@ lahead = 14
 batch_size = 1
 epochs = 100
 
-# ------------
-# MAIN PROGRAM
-# ------------
 
-print("*" * 33)
-if lahead >= tsteps:
-    print("STATELESS LSTM WILL ALSO CONVERGE")
-else:
-    print("STATELESS LSTM WILL NOT CONVERGE")
-print("*" * 33)
+def split_sequence(sequence,n_steps):
+    X,y = list(),list()
+    for i in range(len(sequence)):
+        end_ix = i + n_steps
+        if end_ix > len(sequence)-1:
+            break
+        seq_x, seq_y = sequence[i:end_ix],sequence[end_ix]
+        X.append(seq_x)
+        y.append(seq_y)
+    return np.array(X), np.array(y)
 
-# Since the output is a moving average of the input,
-# the first few points of output will be NaN
-# and will be dropped from the generated data
-# before training the LSTM.
-# Also, when lahead > 1,
-# the preprocessing step later of "rolling window view"
-# will also cause some points to be lost.
-# For aesthetic reasons,
-# in order to maintain generated data length = input_len after pre-processing,
-# add a few points to account for the values that will be lost.
 
-to_drop = max(tsteps - 1, lahead - 1)
-data_input = dataset_repaired
 
-# set the target to be a N-point average of the input
-expected_output = data_input.rolling(window=tsteps, center=False).mean()
+#Splitting into training and test set
+training_seq = int(len(dataset_repaired)*0.80)
+test_seq = len(dataset_repaired) - training_seq
+train,test = sequence[0:training_seq,:],sequence[training_seq:len(sequence),:]
 
-# when lahead > 1, need to convert the input to "rolling window view"
-# https://docs.scipy.org/doc/numpy/reference/generated/numpy.repeat.html
-if lahead > 1:
-    data_input = np.repeat(data_input.values, repeats=lahead, axis=1)
-    data_input = pd.DataFrame(data_input)
-    for i, c in enumerate(data_input.columns):
-        data_input[c] = data_input[c].shift(i)
+#Transforming the dataset into timesteps selected
 
-# drop the nan
-expected_output = expected_output[to_drop:]
-data_input = data_input[to_drop:]
+scaler = MinMaxScaler(feature_range=(0,1))
+train = scaler.fit_transform(train)
+test = scaler.fit_transform(test)
 
+train_x,train_y =  split_sequence(train,lahead)
+test_x,test_y = split_sequence(test,lahead)
+
+#Transforming into the format expected from the LSTM
+train_x = train_x.reshape((train_x.shape[0],train_x.shape[1],1))
+test_x = test_x.reshape((test_x.shape[0],test_x.shape[1],1))
+
+from keras.layers import Dropout
 def create_model(stateful):
     model = Sequential()
-    model.add(LSTM(20,input_shape=(lahead, 1),batch_size=batch_size,stateful=stateful))
+    model.add(LSTM(20,return_sequences=True,input_shape=(lahead, 1),batch_size=batch_size,stateful=stateful))
+    model.add(Dropout(0.5))    
+    model.add(LSTM(10))
+    #model.add(Dropout(0.5))
+   # model.add(LSTM(10))    
     model.add(Dense(1))
     sgd = optimizers.SGD(lr=0.001, decay=1e-6, momentum=0.9, nesterov=True)
-    model.compile(loss='mse', optimizer='sgd')
+    adam = optimizers.Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=None, decay=0.0, amsgrad=False)
+    model.compile(loss='mse', optimizer=adam)
     return model
 #Kilauea     sgd = optimizers.SGD(lr=0.001, decay=1e-6, momentum=0.9, nesterov=True)
 
 print('Creating Stateful Model...')
 model_stateful = create_model(stateful=True)
 
-
-# split train/test data
-def split_data(x, y, ratio=0.8):
-    to_train = int(input_len * ratio)
-    # tweak to match with batch_size
-    to_train -= to_train % batch_size
-
-    x_train = x[:to_train]
-    y_train = y[:to_train]
-    x_test = x[to_train:]
-    y_test = y[to_train:]
-
-    # tweak to match with batch_size
-    to_drop = x.shape[0] % batch_size
-    if to_drop > 0:
-        x_test = x_test[:-1 * to_drop]
-        y_test = y_test[:-1 * to_drop]
-
-    # some reshaping
-
-
-    return (x_train, y_train), (x_test, y_test)
-
-(x_train, y_train), (x_test, y_test) = split_data(data_input, expected_output)
-'''
-If you rescale the whole dataset before train_test_split, there is a chance of introducing look-ahead bias. I think you should split the data first, then use the scaler you trained on the training dataset to transform the test dataset.
-'''
-
-x_train = np.array(x_train)
-x_test = np.array(x_test)
-y_train = np.array(y_train)
-y_test = np.array(y_test)
-
-scaler = MinMaxScaler(feature_range=(0,1))
-x_train = scaler.fit_transform(x_train)
-x_test = scaler.fit_transform(x_test)
-y_train = scaler.fit_transform(y_train)
-y_test = scaler.fit_transform(y_test)
-
-x_train = x_train.reshape((x_train.shape[0],x_train.shape[1],1))
-x_test = x_test.reshape((x_test.shape[0],x_test.shape[1],1))
-y_train = y_train.reshape((y_train.shape[0],1))
-y_test = y_test.reshape((y_test.shape[0],1))
-
-#Stateful: In the stateful LSTM configuration,
- #internal state is only reset when the reset_state()
- #function is called.
  
 print('Training')
 val_loss_history = []
@@ -414,26 +339,29 @@ for i in range(epochs):
     # Each of these series are offset by one step and can be
     # extracted with data_input[i::batch_size].
     #model_stateful.compile(loss='binary_crossentropy',optimizer = 'adam',metrics = ['accuracy'])
-    history_stateful = model_stateful.fit(x_train,
-                       y_train,
+    history_stateful = model_stateful.fit(train_x,
+                       train_y,
                        batch_size=batch_size,
                        epochs=1,
                        verbose=1,
-                       validation_data=(x_test, y_test),
+                       validation_data=(test_x, test_y),
                        shuffle=False)
     val_loss_history.append(history_stateful.history['val_loss'])
     loss_history.append(history_stateful.history['loss'])
     model_stateful.reset_states()
     
 print('Predicting')
-predicted_stateful = model_stateful.predict(x_test, batch_size=batch_size)
+predicted_stateful = model_stateful.predict(test_x, batch_size=batch_size)
+
 
 plt.plot(loss_history)
 plt.plot(val_loss_history)
 plt.ylabel('loss')
 plt.xlabel('epoch')
-plt.legend(['train','validation'],loc='upper right')
+plt.legend(['Train','Validation'],loc='upper right')
 plt.show()
+
+
 
 test_predict = scaler.inverse_transform(predicted_stateful)
 test_y_groundtruth = scaler.inverse_transform(y_test)
@@ -446,34 +374,42 @@ print('Creating Stateless Model...')
 model_stateless = create_model(stateful=False)
 
 print('Training')
-history_stateless = model_stateless.fit(x_train, y_train,batch_size=batch_size,
+history_stateless = model_stateless.fit(train_x, train_y,batch_size=batch_size,
                     epochs=epochs,
                     verbose=1,
-                    validation_data=(x_test, y_test),
+                    validation_data=(test_x, test_y),
                     shuffle=False)
 
 print('Predicting')
-predicted_stateless = model_stateless.predict(x_test, batch_size=batch_size)
+predicted_stateless = model_stateless.predict(test_x, batch_size=batch_size)
 
 plt.plot(history_stateless.history['loss'])
 plt.plot(history_stateless.history['val_loss'])
 plt.ylabel('loss')
 plt.xlabel('epoch')
-plt.legend(['train','validation'],loc='upper right')
+plt.legend(['Train','Validation'],loc='upper right')
 plt.show()
 
-print('Plotting Results')
-#plt.subplot(3, 1, 1)
-plt.plot(y_test)
 plt.title('Results')
+plt.plot(test_y)
+plt.plot(predicted_stateful)
+plt.legend(['Expected','Stateful'],loc='upper right')
+
+plt.title('Results')
+plt.plot(test_y)
+plt.plot(predicted_stateless)
+plt.legend(['Expected','Stateless'],loc='upper right')
 #plt.subplot(3, 1, 2)
 # drop the first "tsteps-1" because it is not possible to predict them
 # since the "previous" timesteps to use do not exist
-plt.plot((predicted_stateful).flatten()[tsteps - 1:])
+#plt.plot((predicted_stateful).flatten()[tsteps - 1:])
 #plt.title('Stateful: Predicted')
 #plt.subplot(3, 1, 3)
-plt.plot((predicted_stateless).flatten())
+#plt.plot((predicted_stateless).flatten())
 #plt.title('Stateless: Predicted')
-plt.legend(['Expected','Stateful','Stateless'],loc='upper right')
+
 plt.show()
+
+
+
 
