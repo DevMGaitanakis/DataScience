@@ -270,7 +270,7 @@ input_len = len(sequence)
 tsteps = 1
 
 # The input sequence length that the LSTM is trained on for each output point
-lahead = 14
+lahead = 60
 
 # training parameters passed to "model.fit(...)"
 batch_size = 1
@@ -310,16 +310,24 @@ test_x = test_x.reshape((test_x.shape[0],test_x.shape[1],1))
 
 from keras.layers import Dropout
 def create_model(stateful):
-    model = Sequential()
-    model.add(LSTM(20,return_sequences=True,input_shape=(lahead, 1),batch_size=batch_size,stateful=stateful))
-    model.add(Dropout(0.5))    
-    model.add(LSTM(10))
+    #model = Sequential()
+    #model.add(LSTM(20,input_shape=(lahead, 1),batch_size=batch_size,stateful=stateful))
+    #model.add(Dropout(0.5))    
+    #model.add(LSTM(10))
     #model.add(Dropout(0.5))
-   # model.add(LSTM(10))    
-    model.add(Dense(1))
-    sgd = optimizers.SGD(lr=0.001, decay=1e-6, momentum=0.9, nesterov=True)
-    adam = optimizers.Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=None, decay=0.0, amsgrad=False)
-    model.compile(loss='mse', optimizer=adam)
+    #model.add(LSTM(10))    
+    #model.add(Dense(1))
+    #sgd = optimizers.SGD(lr=0.001, decay=1e-6, momentum=0.9, nesterov=True)
+    #adam = optimizers.Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=None, decay=0.0, amsgrad=False)
+    #model.compile(loss='mse', optimizer=adam)
+    
+    model = Sequential()
+    model.add(LSTM(100, batch_input_shape=(BATCH_SIZE, TIME_STEPS, x_t.shape[2]), dropout=0.0, recurrent_dropout=0.0, kernel_initializer='random_uniform'))
+    model.add(Dropout(0.5))
+    model.add(Dense(20,activation='relu'))
+    model.add(Dense(1,activation='sigmoid'))
+    optimizer = optimizers.RMSprop(lr=lr)
+    model.compile(loss='mean_squared_error', optimizer=optimizer)
     return model
 #Kilauea     sgd = optimizers.SGD(lr=0.001, decay=1e-6, momentum=0.9, nesterov=True)
 
@@ -390,6 +398,7 @@ plt.xlabel('epoch')
 plt.legend(['Train','Validation'],loc='upper right')
 plt.show()
 
+
 plt.title('Results')
 plt.plot(test_y)
 plt.plot(predicted_stateful)
@@ -399,6 +408,7 @@ plt.title('Results')
 plt.plot(test_y)
 plt.plot(predicted_stateless)
 plt.legend(['Expected','Stateless'],loc='upper right')
+
 #plt.subplot(3, 1, 2)
 # drop the first "tsteps-1" because it is not possible to predict them
 # since the "previous" timesteps to use do not exist
@@ -409,7 +419,5 @@ plt.legend(['Expected','Stateless'],loc='upper right')
 #plt.title('Stateless: Predicted')
 
 plt.show()
-
-
 
 
