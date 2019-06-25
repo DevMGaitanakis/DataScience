@@ -256,9 +256,8 @@ testPredictPlot[:,:] = np.nan
 testPredictPlot[len(trainPredict)+(n_steps*2)+1:len(dataset_repaired)-1,:] = testPredict
 
 '''
-
+sequence = to_train
 sequence = np.array(to_train)
-
 # length of input
 input_len = len(sequence)
 
@@ -268,15 +267,11 @@ input_len = len(sequence)
 # e.g. if tsteps=2 and input=[1, 2, 3, 4, 5],
 #      then output=[1.5, 2.5, 3.5, 4.5]
 tsteps = 1
-
 # The input sequence length that the LSTM is trained on for each output point
-lahead = 60
-
+lahead = 10
 # training parameters passed to "model.fit(...)"
-batch_size = 1
-epochs = 100
-
-
+batch_size = 2
+epochs = 10
 def split_sequence(sequence,n_steps):
     X,y = list(),list()
     for i in range(len(sequence)):
@@ -308,27 +303,42 @@ test_x,test_y = split_sequence(test,lahead)
 train_x = train_x.reshape((train_x.shape[0],train_x.shape[1],1))
 test_x = test_x.reshape((test_x.shape[0],test_x.shape[1],1))
 
+
+from keras.datasets import imdb
+from keras.layers import GRU, LSTM, CuDNNGRU, CuDNNLSTM, Activation
+from keras.preprocessing.sequence import pad_sequences
+from keras.models import Sequential
+
+
 from keras.layers import Dropout
 def create_model(stateful):
-    #model = Sequential()
-    #model.add(LSTM(20,input_shape=(lahead, 1),batch_size=batch_size,stateful=stateful))
-    #model.add(Dropout(0.5))    
-    #model.add(LSTM(10))
-    #model.add(Dropout(0.5))
-    #model.add(LSTM(10))    
-    #model.add(Dense(1))
-    #sgd = optimizers.SGD(lr=0.001, decay=1e-6, momentum=0.9, nesterov=True)
-    #adam = optimizers.Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=None, decay=0.0, amsgrad=False)
-    #model.compile(loss='mse', optimizer=adam)
-    
     model = Sequential()
-    model.add(LSTM(100, batch_input_shape=(BATCH_SIZE, TIME_STEPS, x_t.shape[2]), dropout=0.0, recurrent_dropout=0.0, kernel_initializer='random_uniform'))
-    model.add(Dropout(0.5))
-    model.add(Dense(20,activation='relu'))
-    model.add(Dense(1,activation='sigmoid'))
-    optimizer = optimizers.RMSprop(lr=lr)
-    model.compile(loss='mean_squared_error', optimizer=optimizer)
-    return model
+    model.add(LSTM(50,return_sequences = True,input_shape=(lahead, 1),batch_size=batch_size,stateful=stateful))
+    model.add(LSTM(units=50, return_sequences=True))  
+    model.add(Dropout(0.2))
+    model.add(LSTM(units=50))  
+    model.add(Dropout(0.2)) 
+    model.add(Dense(1))
+    sgd = optimizers.SGD(lr=0.001, decay=1e-6, momentum=0.9, nesterov=True)
+    adam = optimizers.Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=None, decay=0.0, amsgrad=False)
+    model.compile(loss='mse', optimizer=adam)
+    return model     
+
+ 
+'''
+    model.add(GRU(20,input_shape=(lahead, 1), activation='tanh', return_sequences=True))
+    model.add(Dropout(0.15))  # Dropout overfitting
+    # model.add(GRU(layers[2],activation='tanh', return_sequences=True))
+    # model.add(Dropout(0.2))  # Dropout overfitting
+    model.add(GRU(20, activation='tanh', return_sequences=False))
+    model.add(Dropout(0.15))  # Dropout overfitting
+    model.add(Dense(1))
+    model.add(Activation("linear"))
+    model.compile(loss="mse", optimizer="rmsprop") # Nadam rmsprop
+'''    
+    
+  
+
 #Kilauea     sgd = optimizers.SGD(lr=0.001, decay=1e-6, momentum=0.9, nesterov=True)
 
 print('Creating Stateful Model...')
@@ -371,8 +381,8 @@ plt.show()
 
 
 
-test_predict = scaler.inverse_transform(predicted_stateful)
-test_y_groundtruth = scaler.inverse_transform(y_test)
+#test_predict = scaler.inverse_transform(predicted_stateful)
+#test_y_groundtruth = scaler.inverse_transform(y_test)
 
 #Stateless: In the stateless LSTM configuration,
  #internal state is reset after each training batch 
@@ -399,25 +409,79 @@ plt.legend(['Train','Validation'],loc='upper right')
 plt.show()
 
 
+
+
+
+
+plt.title('Results')
+plt.plot(test_y)
+plt.plot(test_y1)
+plt.legend(['Expected','Moving Average 10'],loc='upper right')
+mean_squared_error(test_y, np.delete(test_y1,test_y1[-1:]))
+
 plt.title('Results')
 plt.plot(test_y)
 plt.plot(predicted_stateful)
 plt.legend(['Expected','Stateful'],loc='upper right')
+plt.show()
+
+print('Plotting Results')
 
 plt.title('Results')
 plt.plot(test_y)
-plt.plot(predicted_stateless)
-plt.legend(['Expected','Stateless'],loc='upper right')
+plt.plot(test_y1)
+plt.legend(['Expected','Moving Average 7'],loc='upper right')
+plt.subplot( 1, 2)
 
-#plt.subplot(3, 1, 2)
-# drop the first "tsteps-1" because it is not possible to predict them
-# since the "previous" timesteps to use do not exist
-#plt.plot((predicted_stateful).flatten()[tsteps - 1:])
-#plt.title('Stateful: Predicted')
-#plt.subplot(3, 1, 3)
-#plt.plot((predicted_stateless).flatten())
-#plt.title('Stateless: Predicted')
-
+plt.title('Stateful: Expected - Predicted')
+plt.subplot(3, 1, 3)
+plt.plot((predicted_stateless)
+plt.title('Stateless: Expected - Predicted')
 plt.show()
 
 
+#########           Moving Average             #######
+data_input = sequence
+input_len = len(sequence)
+tsteps = 10
+lahead = 10
+batch_size = 1
+sequence = to_train
+to_drop = max(tsteps - 1, lahead - 1)
+
+expected_output = data_input.rolling(window=tsteps, center=False).mean()
+if lahead > 1:
+    data_input = np.repeat(data_input.values, repeats=lahead, axis=1)
+    data_input = pd.DataFrame(data_input)
+    for i, c in enumerate(data_input.columns):
+        data_input[c] = data_input[c].shift(i)
+
+expected_output = scaler.fit_transform(expected_output)
+data_input = scaler.fit_transform(data_input)
+
+expected_output = expected_output[to_drop:]
+data_input = data_input[to_drop:]
+
+# split train/test data
+def split_data(x, y, ratio=0.8):
+    to_train = int(input_len * ratio)
+    # tweak to match with batch_size
+    to_train -= to_train % batch_size
+
+    x_train = x[:to_train]
+    y_train = y[:to_train]
+    x_test = x[to_train:]
+    y_test = y[to_train:]
+
+    # tweak to match with batch_size
+    to_drop = x.shape[0] % batch_size
+    if to_drop > 0:
+        x_test = x_test[:-1 * to_drop]
+        y_test = y_test[:-1 * to_drop]
+
+    # some reshaping
+    return (x_train, y_train), (x_test, y_test)
+
+(train_x1, train_y1), (test_x1, test_y1) = split_data(data_input, expected_output)
+train_x1 = train_x1.reshape((train_x1.shape[0],train_x1.shape[1],1))
+test_x1 = test_x1.reshape((test_x1.shape[0],test_x1.shape[1],1))
