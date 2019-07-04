@@ -178,10 +178,31 @@ def dataoversample(cutstart,cutend,dataset):
         if month > 12:
             month = 1
     return dataset_repaired
- 
+
+def data_distribution(dataset):
+    array1 = np.array([])  
+    array2 = np.array([]) 
+    rangeof_values = {}    
+    range_start =0
+    range_end = 10
+    for z in range(20):
+        range_start += 10
+        range_end += 10
+        key =  str(range_start)+'to'+ str(range_end)
+        rangeof_values[key] = 0 
+        for i in range (len(dataset)):
+            if dataset[i] > range_start and dataset[i] < range_end:
+               rangeof_values[key] +=1
+    for k, v in rangeof_values.items():
+        array1 = np.append(array1,k)
+        array2 = np.append(array2,v)
+    return array1,array2
 #Sumation of Hotspots
 new_dataset = entries_summation(dataset)
 new_dataset = np.array(new_dataset,dtype=float)
+
+#Data Distribution
+labels_distribution,values_distribution = data_distribution(new_dataset[:,3])
 
 #Replacing missing values
 dataset_repaired = dataoversample(2013,2018,new_dataset)
@@ -258,8 +279,8 @@ testPredictPlot[len(trainPredict)+(n_steps*2)+1:len(dataset_repaired)-1,:] = tes
 '''
 sequence = to_train
 sequence = np.array(to_train)
-# length of input
 input_len = len(sequence)
+
 
 # The window length of the moving average used to generate
 # the output from the input in the input/output pair used
@@ -337,13 +358,10 @@ def create_model(stateful):
     model.compile(loss="mse", optimizer="rmsprop") # Nadam rmsprop
 '''    
     
-  
-
 #Kilauea     sgd = optimizers.SGD(lr=0.001, decay=1e-6, momentum=0.9, nesterov=True)
 
 print('Creating Stateful Model...')
 model_stateful = create_model(stateful=True)
-
  
 print('Training')
 val_loss_history = []
@@ -379,8 +397,6 @@ plt.xlabel('epoch')
 plt.legend(['Train','Validation'],loc='upper right')
 plt.show()
 
-
-
 #test_predict = scaler.inverse_transform(predicted_stateful)
 #test_y_groundtruth = scaler.inverse_transform(y_test)
 
@@ -407,10 +423,6 @@ plt.ylabel('loss')
 plt.xlabel('epoch')
 plt.legend(['Train','Validation'],loc='upper right')
 plt.show()
-
-
-
-
 
 
 plt.title('Results')
