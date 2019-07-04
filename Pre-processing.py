@@ -210,10 +210,10 @@ dataset_repaired = dataoversample(2013,2018,new_dataset)
 #Save Dataset into a CSV
 for i in range(len(dataset_repaired)):
     dataset_repaired[i] = dataset_repaired[i].flatten() #Flatten arrays saved in the list
-
 #new_dataset = pd.DataFrame(dataset_repaired)
 #new_dataset.to_csv("Oversampledkilanuea.csv") #Export to CSV
-
+    
+#Getting rid of columns that are not required for the prediction
 dataset_repaired = np.array(dataset_repaired,np.object)
 for i in range(len(dataset_repaired)):
     dataset_repaired[i,0] = str(int(dataset_repaired[i,0])) +'-'+ str(int(dataset_repaired[i,1]))+'-'+str(int(dataset_repaired[i,2]))
@@ -236,10 +236,6 @@ to_train= dataset_repaired.loc[:,:]
 #to_test= new_dataset.loc['2018-08-07':]
 
 #####Prediction model Starts Here#####
-
-
-
-
 
 '''
 #Build and train the neural network
@@ -289,9 +285,9 @@ input_len = len(sequence)
 #      then output=[1.5, 2.5, 3.5, 4.5]
 tsteps = 1
 # The input sequence length that the LSTM is trained on for each output point
-lahead = 10
+lahead = 2
 # training parameters passed to "model.fit(...)"
-batch_size = 2
+batch_size = 1
 epochs = 10
 def split_sequence(sequence,n_steps):
     X,y = list(),list()
@@ -304,7 +300,16 @@ def split_sequence(sequence,n_steps):
         y.append(seq_y)
     return np.array(X), np.array(y)
 
-
+def split_sequence_mving_avg(sequence,n_steps):
+    X,y = list(),list()
+    for i in range(len(sequence)):
+        end_ix = i + n_steps
+        if end_ix > len(sequence)-1:
+            break
+        seq_x, seq_y = sequence[i:end_ix],sequence[i:end_ix].sum()/n_steps
+        X.append(seq_x)
+        y.append(seq_y)
+    return np.array(X), np.array(y)
 
 #Splitting into training and test set
 training_seq = int(len(dataset_repaired)*0.80)
@@ -319,6 +324,11 @@ test = scaler.fit_transform(test)
 
 train_x,train_y =  split_sequence(train,lahead)
 test_x,test_y = split_sequence(test,lahead)
+
+
+train_x1,train_y1 =  split_sequence_mving_avg(train,lahead)
+test_x1,test_y1 = split_sequence_mving_avg(test,lahead)
+test_y1 = test_y1.reshape(-1,1)
 
 #Transforming into the format expected from the LSTM
 train_x = train_x.reshape((train_x.shape[0],train_x.shape[1],1))
@@ -389,7 +399,6 @@ for i in range(epochs):
 print('Predicting')
 predicted_stateful = model_stateful.predict(test_x, batch_size=batch_size)
 
-
 plt.plot(loss_history)
 plt.plot(val_loss_history)
 plt.ylabel('loss')
@@ -424,12 +433,13 @@ plt.xlabel('epoch')
 plt.legend(['Train','Validation'],loc='upper right')
 plt.show()
 
-
+test_y = scaler.inverse_transform(test_y)
+test_y1 = scaler.inverse_transform(test_y1)
 plt.title('Results')
 plt.plot(test_y)
 plt.plot(test_y1)
-plt.legend(['Expected','Moving Average 10'],loc='upper right')
-mean_squared_error(test_y, np.delete(test_y1,test_y1[-1:]))
+plt.legend(['Expected','Moving Average 7'],loc='upper right')
+mean_squared_error(test_y, test_y1)
 
 plt.title('Results')
 plt.plot(test_y)
@@ -437,63 +447,9 @@ plt.plot(predicted_stateful)
 plt.legend(['Expected','Stateful'],loc='upper right')
 plt.show()
 
-print('Plotting Results')
-
-plt.title('Results')
-plt.plot(test_y)
-plt.plot(test_y1)
-plt.legend(['Expected','Moving Average 7'],loc='upper right')
-plt.subplot( 1, 2)
-
 plt.title('Stateful: Expected - Predicted')
 plt.subplot(3, 1, 3)
 plt.plot((predicted_stateless)
 plt.title('Stateless: Expected - Predicted')
 plt.show()
 
-
-#########           Moving Average             #######
-data_input = sequence
-input_len = len(sequence)
-tsteps = 10
-lahead = 10
-batch_size = 1
-sequence = to_train
-to_drop = max(tsteps - 1, lahead - 1)
-
-expected_output = data_input.rolling(window=tsteps, center=False).mean()
-if lahead > 1:
-    data_input = np.repeat(data_input.values, repeats=lahead, axis=1)
-    data_input = pd.DataFrame(data_input)
-    for i, c in enumerate(data_input.columns):
-        data_input[c] = data_input[c].shift(i)
-
-expected_output = scaler.fit_transform(expected_output)
-data_input = scaler.fit_transform(data_input)
-
-expected_output = expected_output[to_drop:]
-data_input = data_input[to_drop:]
-
-# split train/test data
-def split_data(x, y, ratio=0.8):
-    to_train = int(input_len * ratio)
-    # tweak to match with batch_size
-    to_train -= to_train % batch_size
-
-    x_train = x[:to_train]
-    y_train = y[:to_train]
-    x_test = x[to_train:]
-    y_test = y[to_train:]
-
-    # tweak to match with batch_size
-    to_drop = x.shape[0] % batch_size
-    if to_drop > 0:
-        x_test = x_test[:-1 * to_drop]
-        y_test = y_test[:-1 * to_drop]
-
-    # some reshaping
-    return (x_train, y_train), (x_test, y_test)
-
-(train_x1, train_y1), (test_x1, test_y1) = split_data(data_input, expected_output)
-train_x1 = train_x1.reshape((train_x1.shape[0],train_x1.shape[1],1))
-test_x1 = test_x1.reshape((test_x1.shape[0],test_x1.shape[1],1))
