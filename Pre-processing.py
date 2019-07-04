@@ -277,7 +277,6 @@ sequence = to_train
 sequence = np.array(to_train)
 input_len = len(sequence)
 
-
 # The window length of the moving average used to generate
 # the output from the input in the input/output pair used
 # to train the LSTM
@@ -288,6 +287,7 @@ tsteps = 1
 lahead = 2
 # training parameters passed to "model.fit(...)"
 batch_size = 1
+
 epochs = 10
 def split_sequence(sequence,n_steps):
     X,y = list(),list()
@@ -312,7 +312,7 @@ def split_sequence_mving_avg(sequence,n_steps):
     return np.array(X), np.array(y)
 
 #Splitting into training and test set
-training_seq = int(len(dataset_repaired)*0.80)
+training_seq = int(len(dataset_repaired)*0.99)
 test_seq = len(dataset_repaired) - training_seq
 train,test = sequence[0:training_seq,:],sequence[training_seq:len(sequence),:]
 
@@ -325,21 +325,47 @@ test = scaler.fit_transform(test)
 train_x,train_y =  split_sequence(train,lahead)
 test_x,test_y = split_sequence(test,lahead)
 
+#moving AVG
+lahead = 2
+
+train_x,train_y =  split_sequence(train,lahead)
+test_x,test_y1 = split_sequence(test,lahead)
 
 train_x1,train_y1 =  split_sequence_mving_avg(train,lahead)
-test_x1,test_y1 = split_sequence_mving_avg(test,lahead)
-test_y1 = test_y1.reshape(-1,1)
+test_x1,test_y2 = split_sequence_mving_avg(test,lahead)
+test_y2 = test_y2.reshape(-1,1)
+lahead = 4
+
+train_x,train_y =  split_sequence(train,lahead)
+test_x,test_y3 = split_sequence(test,lahead)
+train_x1,train_y1 =  split_sequence_mving_avg(train,lahead)
+test_x1,test_y4 = split_sequence_mving_avg(test,lahead)
+test_y4 = test_y4.reshape(-1,1)
+lahead = 7
+
+train_x,train_y =  split_sequence(train,lahead)
+test_x,test_y6 = split_sequence(test,lahead)
+
+train_x1,train_y1 =  split_sequence_mving_avg(train,lahead)
+test_x1,test_y7 = split_sequence_mving_avg(test,lahead)
+test_y7 = test_y7.reshape(-1,1)
+lahead = 10
+
+train_x,train_y =  split_sequence(train,lahead)
+test_x,test_y9 = split_sequence(test,lahead)
+
+train_x1,train_y1 =  split_sequence_mving_avg(train,lahead)
+test_x1,test_y10 = split_sequence_mving_avg(test,lahead)
+test_y10 = test_y10.reshape(-1,1)
 
 #Transforming into the format expected from the LSTM
 train_x = train_x.reshape((train_x.shape[0],train_x.shape[1],1))
 test_x = test_x.reshape((test_x.shape[0],test_x.shape[1],1))
 
-
 from keras.datasets import imdb
 from keras.layers import GRU, LSTM, CuDNNGRU, CuDNNLSTM, Activation
 from keras.preprocessing.sequence import pad_sequences
 from keras.models import Sequential
-
 
 from keras.layers import Dropout
 def create_model(stateful):
@@ -433,13 +459,23 @@ plt.xlabel('epoch')
 plt.legend(['Train','Validation'],loc='upper right')
 plt.show()
 
-test_y = scaler.inverse_transform(test_y)
 test_y1 = scaler.inverse_transform(test_y1)
+test_y3 = scaler.inverse_transform(test_y3)
+test_y6 = scaler.inverse_transform(test_y6)
+test_y9 = scaler.inverse_transform(test_y9)
+test_y2 = scaler.inverse_transform(test_y2)
+test_y4 = scaler.inverse_transform(test_y4)
+test_y7 = scaler.inverse_transform(test_y7)
+test_y10 = scaler.inverse_transform(test_y10)
+
 plt.title('Results')
-plt.plot(test_y)
 plt.plot(test_y1)
+plt.plot(test_y3)
 plt.legend(['Expected','Moving Average 7'],loc='upper right')
-mean_squared_error(test_y, test_y1)
+MSE2 = mean_squared_error(test_y1, test_y2)
+MSE4 = mean_squared_error(test_y3, test_y4)
+MSE7 = mean_squared_error(test_y6, test_y7)
+MSE10 = mean_squared_error(test_y9, test_y10)
 
 plt.title('Results')
 plt.plot(test_y)
@@ -452,4 +488,11 @@ plt.subplot(3, 1, 3)
 plt.plot((predicted_stateless)
 plt.title('Stateless: Expected - Predicted')
 plt.show()
+
+# To do
+# Test if Sequence is relevant
+# Try Increasing training set
+# Try changing number of cells
+# Try Different Depth architectures
+# Try Different Models
 
