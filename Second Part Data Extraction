@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Jul 18 16:07:47 2019
+
+@author: fro
+"""
+
 import glob, os
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -44,7 +51,7 @@ for a in range(0,20):
                         print('file entry %s' %individualfile)
                 else:
                     print('file empty %s' %individualfile)
+                                          
 for idx,sds in enumerate(datasets_dic.keys()):
     print (idx,sds)
-  
-    
+ 
