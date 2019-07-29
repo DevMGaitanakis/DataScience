@@ -1,0 +1,57 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Jul 18 16:07:47 2019
+
+@author: fro
+"""
+
+import glob, os
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import datetime
+#from mpl_toolkits.basemap import Basemap
+import numpy as np
+from pyhdf.SD import SD, SDC
+
+file = open('testfile.txt','w') 
+file.close
+long = 15 
+lat = 38
+
+for i in range(199,200):
+    file_num = str(i).zfill(3)
+    os.chdir("D:\dataS")
+    files = []
+    for file in glob.glob("MOD14.A2019%s*" %file_num):
+        files.append(file)
+    if len(files) > 1:
+        for file in files:
+            print(file)
+
+file_name = files[1]
+file = SD(file_name, SDC.READ)
+datasets_dic = file.datasets()
+FP_latitude = file.select('FP_latitude').get()
+FP_longitude = file.select('FP_longitude').get()
+FP_T21 = file.select('FP_T21').get()
+
+latitude = np.where(FP_latitude % lat < 1 )
+longitude = np.where(FP_longitude % long < 1 )
+sumval = sum(latitude) - sum(longitude)
+if sum(sumval) == 0:
+    for lat in latitude:
+        brightness = FP_T21[lat]
+to_store = str(datetime.date.fromordinal(i)).replace('0001','2019')      
+for z in range(len(brightness)):
+    to_store += ',' + str(brightness[z])
+
+
+for idx,sds in enumerate(datasets_dic.keys()):
+    print (idx,sds)
+  
+ 
+
+
+
+
+
