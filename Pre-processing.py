@@ -1,9 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Jun  3 12:49:36 2019
-
-@author: fro
-"""
 from __future__ import print_function
 import numpy as np
 import matplotlib.pyplot as plt
@@ -18,10 +12,12 @@ import math
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_squared_error
 from keras import optimizers
-%matplotlib qt
-data = pd.read_csv('kilauea.csv').to_numpy(dtype='float32')
-dataset =np.flipud(data)
+from keras.models import Sequential
+from keras.layers import Dense
+from keras.layers import LSTM,GRU
+from keras.layers import Dropout
 
+%matplotlib inline
 def data_missing(dataset):
     counter = 1
     months_count=0
@@ -48,7 +44,7 @@ def entries_summation(dataset):
             to_sum1.append(dataset[i][3])
             entries_to_sum.append(to_sum1)
             new_dataset.append(dataset[i])
-            new_dataset[len(new_dataset)-1][3] = sum(entries_to_sum[len(entries_to_sum)-1])/len(entries_to_sum[len(entries_to_sum)-1])
+            new_dataset[len(new_dataset)-1][3] = sum(entries_to_sum[len(entries_to_sum)-1])
             break
         if dataset[i][2] == dataset[i+1][2]:
             to_sum1.append(dataset[i][3])
@@ -57,7 +53,7 @@ def entries_summation(dataset):
             to_sum1.append(dataset[i][3]) #Append previous item to the list
             entries_to_sum.append(to_sum1) # Insert everything
             new_dataset.append(dataset[i]) #Create new List with the Dataset Entry
-            new_dataset[len(new_dataset)-1][3] = sum(entries_to_sum[len(entries_to_sum)-1])/len(entries_to_sum[len(entries_to_sum)-1]) #Update Excess radiation with the summation of the pixels identified this day
+            new_dataset[len(new_dataset)-1][3] = sum(entries_to_sum[len(entries_to_sum)-1]) #Update Excess radiation with the summation of the pixels identified this day
             to_sum1 = []        
             r=0
         elif dataset[i][2] != dataset[i+1][2] and r == 1 : # Handles two day entries
@@ -65,7 +61,7 @@ def entries_summation(dataset):
             to_sum2.append(dataset[i][3])
             new_dataset.append(dataset[i])
             entries_to_sum.append(to_sum2)
-            new_dataset[len(new_dataset)-1][3] = sum(entries_to_sum[len(entries_to_sum)-1])/len(entries_to_sum[len(entries_to_sum)-1]) #Update Sum        
+            new_dataset[len(new_dataset)-1][3] = sum(entries_to_sum[len(entries_to_sum)-1]) #Update Sum        
             to_sum1,to_sum2 = [],[]
             r=0
         elif dataset[i][2] != dataset[i+1][2] and r == 0 : #Handles one day entry
@@ -184,111 +180,36 @@ def data_distribution(dataset):
     array2 = np.array([]) 
     rangeof_values = {}    
     range_start =0
-    range_end = 10
-    for z in range(20):
-        range_start += 10
-        range_end += 10
+    range_end = 100
+    for z in range(60):
         key =  str(range_start)+'to'+ str(range_end)
         rangeof_values[key] = 0 
         for i in range (len(dataset)):
             if dataset[i] > range_start and dataset[i] < range_end:
                rangeof_values[key] +=1
+        range_start += 100
+        range_end += 100
     for k, v in rangeof_values.items():
         array1 = np.append(array1,k)
         array2 = np.append(array2,v)
     return array1,array2
-#Sumation of Hotspots
-new_dataset = entries_summation(dataset)
-new_dataset = np.array(new_dataset,dtype=float)
 
-#Data Distribution
-labels_distribution,values_distribution = data_distribution(new_dataset[:,3])
+def data_prep_plot(dataset,path,name):
+    dataset = np.array(dataset,np.object)
+    for i in range(len(dataset)):
+        dataset[i,0] = str(int(dataset[i,0])) +'-'+ str(int(dataset[i,1]))+'-'+str(int(dataset[i,2]))
+    dataset = np.delete(dataset, 1, 1) 
+    dataset = np.delete(dataset, 1, 1) 
+    dataset = np.delete(dataset, 2, 1) 
+    dataset = pd.DataFrame(dataset)   
+    dataset[0] = pd.to_datetime(dataset[0]) # Covenrt to Date Time
+    dataset[1] = dataset[1].astype(float) # Covenrt from object to float 
+    dataset = dataset.set_index(0)
+    sns.set(rc={'figure.figsize':(11, 4)})
+    dataset[1].plot(linewidth=0.5); #Plotting the Data
+    plt.savefig(path+'\\'+fname+'.png')
+    return dataset
 
-#Replacing missing values
-dataset_repaired = dataoversample(2013,2018,new_dataset)
-
-#Save Dataset into a CSV
-for i in range(len(dataset_repaired)):
-    dataset_repaired[i] = dataset_repaired[i].flatten() #Flatten arrays saved in the list
-#new_dataset = pd.DataFrame(dataset_repaired)
-#new_dataset.to_csv("Oversampledkilanuea.csv") #Export to CSV
-    
-#Getting rid of columns that are not required for the prediction
-dataset_repaired = np.array(dataset_repaired,np.object)
-for i in range(len(dataset_repaired)):
-    dataset_repaired[i,0] = str(int(dataset_repaired[i,0])) +'-'+ str(int(dataset_repaired[i,1]))+'-'+str(int(dataset_repaired[i,2]))
-
-dataset_repaired = np.delete(dataset_repaired, 1, 1) 
-dataset_repaired = np.delete(dataset_repaired, 1, 1) 
-dataset_repaired = np.delete(dataset_repaired, 2, 1) 
-dataset_repaired = pd.DataFrame(dataset_repaired)
-
-dataset_repaired[0] = pd.to_datetime(dataset_repaired[0]) # Covenrt to Date Time
-dataset_repaired[1] = dataset_repaired[1].astype(float) # Conver from object to float
-dataset_repaired.dtypes
-
-dataset_repaired = dataset_repaired.set_index(0)
-
-#sns.set(rc={'figure.figsize':(11, 4)})
-#dataset_repaired[1].plot(linewidth=0.5); #Plotting the Data
-
-to_train= dataset_repaired.loc[:,:]
-#to_test= new_dataset.loc['2018-08-07':]
-
-#####Prediction model Starts Here#####
-
-'''
-#Build and train the neural network
-model = Sequential()
-model.add(LSTM(20, return_sequences=True,input_shape=(n_steps, 1)))  # returns a sequence of vectors of dimension 32
-model.add(LSTM(20,input_shape=(n_steps, 1)))  # returns a sequence of vectors of dimension 32
-model.add(Dense(1))
-model.compile(optimizer='adam',loss='mse')
-model.fit(trainX,trainy,epochs=10,shuffle = False)
-
-#Make predictions
-trainPredict = model.predict(trainX)
-testPredict = model.predict(testX)
-
-#Invert predictions
-trainPredict = scaler.inverse_transform(trainPredict)
-trainy = scaler.inverse_transform(trainy)
-
-testPredict = scaler.inverse_transform(testPredict)
-testy = scaler.inverse_transform(testy)
-
-#Calculate RMSE
-trainScore = math.sqrt(mean_squared_error(trainy,trainPredict))
-print('Train score : %.2f RMSE' %(trainScore))
-testScore = math.sqrt(mean_squared_error(testy,testPredict))
-print('Train score : %.2f RMSE' %(testScore))
-
-
-trainPredictPlot = np.empty_like(dataset_repaired)
-trainPredictPlot[:,:] = np.nan
-trainPredictPlot[n_steps:len(trainPredict)+n_steps,:] = trainPredict
-
-testPredictPlot = np.empty_like(dataset_repaired)
-testPredictPlot[:,:] = np.nan
-testPredictPlot[len(trainPredict)+(n_steps*2)+1:len(dataset_repaired)-1,:] = testPredict
-
-'''
-sequence = to_train
-sequence = np.array(to_train)
-input_len = len(sequence)
-
-# The window length of the moving average used to generate
-# the output from the input in the input/output pair used
-# to train the LSTM
-# e.g. if tsteps=2 and input=[1, 2, 3, 4, 5],
-#      then output=[1.5, 2.5, 3.5, 4.5]
-tsteps = 1
-# The input sequence length that the LSTM is trained on for each output point
-lahead = 2
-# training parameters passed to "model.fit(...)"
-batch_size = 1
-
-epochs = 10
 def split_sequence(sequence,n_steps):
     X,y = list(),list()
     for i in range(len(sequence)):
@@ -300,199 +221,271 @@ def split_sequence(sequence,n_steps):
         y.append(seq_y)
     return np.array(X), np.array(y)
 
-def split_sequence_mving_avg(sequence,n_steps):
-    X,y = list(),list()
-    for i in range(len(sequence)):
-        end_ix = i + n_steps
-        if end_ix > len(sequence)-1:
-            break
-        seq_x, seq_y = sequence[i:end_ix],sequence[i:end_ix].sum()/n_steps
-        X.append(seq_x)
-        y.append(seq_y)
-    return np.array(X), np.array(y)
+def CustomLSTM(layers,lahead,lr,epochs,batch_size,units,dropout,shuffle):
+    program.append('model_LSTM = Sequential()')
+    if layers == 1:
+        program.append('model_LSTM.add(LSTM(units =' + str(units) + ',return_sequences = False, input_shape=(' + str(lahead) + ',1)))')
+    else:
+        program.append('model_LSTM.add(LSTM(units =' + str(units) + ',return_sequences = True, input_shape=(' + str(lahead) + ',1)))')  
+        program.append('model_LSTM.add(Dropout(' + str(dropout) + '))')
+        for i in range(layers-1):
+            if i+1 ==(layers-1):
+                program.append('model_LSTM.add(LSTM(units ='+ str(units) +'))')
+                program.append('model_LSTM.add(Dropout(' + str(dropout) + '))')
+            else:
+                unit_inside =  'units' + str(i+1)
+                unit_inside = unit_inside
+                program.append('model_LSTM.add(LSTM(units ='+ str(units) + ',return_sequences = True))')
+                program.append('model_LSTM.add(Dropout(' + str(dropout) + '))')
+    program.append('model_LSTM.add(Dense(units=1))')
+    program.append('RMSprop = optimizers.RMSprop(lr=' + str(lr) + ', rho=0.9, epsilon=None, decay=0.0)')
+    program.append('model_LSTM.compile(optimizer =RMSprop ,loss="mean_squared_error",metrics=["mse"])')
+    program.append('history = model_LSTM.fit(train_x,train_y,epochs=' + str(epochs) + ',batch_size=' + str(batch_size) + ',shuffle=' + str(shuffle) + ',validation_split =0.2)')     
+    return program
 
+def CustomGRU(layers,lahead,lr,epochs,batch_size,units,dropout,shuffle):
+    program.append('model_GRU = Sequential()')
+    if layers == 1:
+        program.append('model_GRU.add(GRU(units =' + str(units) + ',return_sequences = False, input_shape=(' + str(lahead) + ',1)))')
+    else:
+        program.append('model_GRU.add(GRU(units =' + str(units) + ',return_sequences = True, input_shape=(' + str(lahead) + ',1)))')  
+        program.append('model_GRU.add(Dropout(' + str(dropout) + '))')
+        for i in range(layers-1):
+            if i+1 ==(layers-1):
+                program.append('model_GRU.add(LSTM(units ='+ str(units) +'))')
+                program.append('model_GRU.add(Dropout(' + str(dropout) + '))')
+            else:
+                unit_inside =  'units' + str(i+1)
+                unit_inside = unit_inside
+                program.append('model_GRU.add(GRU(units ='+ str(units) + ',return_sequences = True))')
+                program.append('model_GRU.add(Dropout(' + str(dropout) + '))')
+    program.append('model_GRU.add(Dense(units=1))')
+    program.append('RMSprop = optimizers.RMSprop(lr=' + str(lr) + ', rho=0.9, epsilon=None, decay=0.0)')
+    program.append('model_GRU.compile(optimizer =RMSprop ,loss="mean_squared_error",metrics=["mse"])')
+    program.append('history = model_GRU.fit(train_x,train_y,epochs=' + str(epochs) + ',batch_size=' + str(batch_size) + ',shuffle=' + str(shuffle) + ',validation_split =0.2)')     
+    return program
+
+
+#Time period that is going to be extracted and oversampled / this section is only for plotting purposes
+
+'''
+cutstart = 2000
+cutend = 2019
+for i in range(len(new_dataset)):
+    if new_dataset[i][0] == cutstart:
+        start=i
+        break
+for i in range(len(new_dataset)):
+    if new_dataset[i][0] == cutend:
+        end=i
+        break
+to_plot = new_dataset[start:end,:]
+#to_plot = data_prep_plot(to_plot,path,fname)
+#Data Distribution
+labels_distribution,values_distribution = data_distribution(np.array(dataset_not_op))
+
+
+  #Getting rid of columns that are not required for the prediction and plotting
+        dataset_repaired = data_prep_plot(dataset_repaired,path,fname)
+    #Data Distribution
+        # labels_distribution,values_distribution = data_distribution(np.array(dataset_repaired))
+ '''       
+       
+#files = ['kilauea','Erebus','ErtaAle','Nyiragongo']
+
+#periods_to_extract = [[2013,2018],[2003,2010],[2006,2017],[2005,2018]]
+
+data = pd.read_csv('Nyiragongo.csv')
+dataset =np.flipud(data)
+new_dataset = entries_summation(dataset)
+new_dataset = np.array(new_dataset,dtype=float)
+
+## I have to do the last pass with set to True for Erta Ale
+
+dataset_not_op = new_dataset[:,3]
+sequence = np.array(dataset_not_op)
+
+dataset_repaired = dataoversample(2005,2018,new_dataset)
+for i in range(len(dataset_repaired)):
+    dataset_repaired[i] = dataset_repaired[i].flatten() #Flatten arrays saved in the list    
+dataset_repaired = np.array(dataset_repaired)    
+dataset_repaired = dataset_repaired[:,3]
+sequence = np.array(dataset_repaired)
+
+
+sequence = sequence.reshape(-1, 1)
+input_len = len(sequence)
 #Splitting into training and test set
-training_seq = int(len(dataset_repaired)*0.99)
-test_seq = len(dataset_repaired) - training_seq
+training_seq = int(len(sequence)*0.90)
+test_seq = len(sequence) - training_seq
 train,test = sequence[0:training_seq,:],sequence[training_seq:len(sequence),:]
-
-#Transforming the dataset into timesteps selected
 
 scaler = MinMaxScaler(feature_range=(0,1))
 train = scaler.fit_transform(train)
 test = scaler.fit_transform(test)
+train_x,train_y =  split_sequence(train,30)
+train_y = train_y.reshape(-1,1,1)
+test_x,test_y = split_sequence(test,30)
+test_y = test_y.reshape(-1,1,1)
 
-train_x,train_y =  split_sequence(train,lahead)
-test_x,test_y = split_sequence(test,lahead)
-
-#moving AVG
-lahead = 2
-
-train_x,train_y =  split_sequence(train,lahead)
-test_x,test_y1 = split_sequence(test,lahead)
-
-train_x1,train_y1 =  split_sequence_mving_avg(train,lahead)
-test_x1,test_y2 = split_sequence_mving_avg(test,lahead)
-test_y2 = test_y2.reshape(-1,1)
-lahead = 4
-
-train_x,train_y =  split_sequence(train,lahead)
-test_x,test_y3 = split_sequence(test,lahead)
-train_x1,train_y1 =  split_sequence_mving_avg(train,lahead)
-test_x1,test_y4 = split_sequence_mving_avg(test,lahead)
-test_y4 = test_y4.reshape(-1,1)
-lahead = 7
-
-train_x,train_y =  split_sequence(train,lahead)
-test_x,test_y6 = split_sequence(test,lahead)
-
-train_x1,train_y1 =  split_sequence_mving_avg(train,lahead)
-test_x1,test_y7 = split_sequence_mving_avg(test,lahead)
-test_y7 = test_y7.reshape(-1,1)
-lahead = 10
-
-train_x,train_y =  split_sequence(train,lahead)
-test_x,test_y9 = split_sequence(test,lahead)
-
-train_x1,train_y1 =  split_sequence_mving_avg(train,lahead)
-test_x1,test_y10 = split_sequence_mving_avg(test,lahead)
-test_y10 = test_y10.reshape(-1,1)
-
-#Transforming into the format expected from the LSTM
-train_x = train_x.reshape((train_x.shape[0],train_x.shape[1],1))
-test_x = test_x.reshape((test_x.shape[0],test_x.shape[1],1))
-
-from keras.datasets import imdb
-from keras.layers import GRU, LSTM, CuDNNGRU, CuDNNLSTM, Activation
-from keras.preprocessing.sequence import pad_sequences
+from numpy import array
 from keras.models import Sequential
+from keras.layers import LSTM
+from keras.layers import Dense
+from keras.layers import RepeatVector
+from keras.layers import TimeDistributed
+from keras.utils import plot_model
 
-from keras.layers import Dropout
-def create_model(stateful):
-    model = Sequential()
-    model.add(LSTM(50,return_sequences = True,input_shape=(lahead, 1),batch_size=batch_size,stateful=stateful))
-    model.add(LSTM(units=50, return_sequences=True))  
-    model.add(Dropout(0.2))
-    model.add(LSTM(units=50))  
-    model.add(Dropout(0.2)) 
-    model.add(Dense(1))
-    sgd = optimizers.SGD(lr=0.001, decay=1e-6, momentum=0.9, nesterov=True)
-    adam = optimizers.Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=None, decay=0.0, amsgrad=False)
-    model.compile(loss='mse', optimizer=adam)
-    return model     
+model = Sequential()
+model.add(LSTM(128, activation='relu', input_shape=(30,1), return_sequences=True))
+model.add(LSTM(64, activation='relu', return_sequences=False))
+model.add(RepeatVector(1))
+model.add(LSTM(64, activation='relu', return_sequences=True))
+model.add(LSTM(128, activation='relu', return_sequences=True))
+model.add(TimeDistributed(Dense(1)))
+RMSprop = optimizers.RMSprop(lr=0.001, rho=0.9, epsilon=None, decay=0.0)
+model.compile(optimizer='RMSprop', loss='mse')
+plot_model(model, show_shapes=False, to_file='predict_lstm_autoencoder.png')
+history = model.fit(train_x,train_y,epochs=50,batch_size=10,shuffle=False,validation_split =0.2)
 
- 
-'''
-    model.add(GRU(20,input_shape=(lahead, 1), activation='tanh', return_sequences=True))
-    model.add(Dropout(0.15))  # Dropout overfitting
-    # model.add(GRU(layers[2],activation='tanh', return_sequences=True))
-    # model.add(Dropout(0.2))  # Dropout overfitting
-    model.add(GRU(20, activation='tanh', return_sequences=False))
-    model.add(Dropout(0.15))  # Dropout overfitting
-    model.add(Dense(1))
-    model.add(Activation("linear"))
-    model.compile(loss="mse", optimizer="rmsprop") # Nadam rmsprop
-'''    
-    
-#Kilauea     sgd = optimizers.SGD(lr=0.001, decay=1e-6, momentum=0.9, nesterov=True)
-
-print('Creating Stateful Model...')
-model_stateful = create_model(stateful=True)
- 
-print('Training')
-val_loss_history = []
-loss_history=[]
-for i in range(epochs):
-    print('Epoch', i + 1, '/', epochs)
-    # Note that the last state for sample i in a batch will
-    # be used as initial state for sample i in the next batch.
-    # Thus we are simultaneously training on batch_size series with
-    # lower resolution than the original series contained in data_input.
-    # Each of these series are offset by one step and can be
-    # extracted with data_input[i::batch_size].
-    #model_stateful.compile(loss='binary_crossentropy',optimizer = 'adam',metrics = ['accuracy'])
-    history_stateful = model_stateful.fit(train_x,
-                       train_y,
-                       batch_size=batch_size,
-                       epochs=1,
-                       verbose=1,
-                       validation_data=(test_x, test_y),
-                       shuffle=False)
-    val_loss_history.append(history_stateful.history['val_loss'])
-    loss_history.append(history_stateful.history['loss'])
-    model_stateful.reset_states()
-    
-print('Predicting')
-predicted_stateful = model_stateful.predict(test_x, batch_size=batch_size)
-
-plt.plot(loss_history)
-plt.plot(val_loss_history)
+plt.figure(figsize=(10,7))       
+plt.plot(history.history['loss'])
+plt.plot(history.history['val_loss'])
+plt.title('model train vs validation loss')
 plt.ylabel('loss')
 plt.xlabel('epoch')
-plt.legend(['Train','Validation'],loc='upper right')
-plt.show()
+plt.legend(['train', 'validation'], loc='upper right')
+plt.savefig(path+'\\'+fname+'Results.png')
+        
+prediction = model.predict(test_x)
+actual = test_y.reshape(-1,1)
+prediction = prediction.reshape(-1,1)
+plt.figure(figsize=(10,7)) 
+plt.plot(actual,linewidth=1.0)
+plt.plot(prediction,linewidth=2.0)
+plt.title('Predictions')
+plt.ylabel('Excess Radiation')
+plt.xlabel('Days')
+plt.legend(['Actual', 'Prediction'], loc='upper right')
+plt.savefig(path+'\\'+fname+'predictions.png')
+print (np.max(history.history['loss']))
+print (np.min(history.history['loss']))
+print (np.max(history.history['val_loss']))
+print (np.min(history.history['val_loss']))
+print("MSE:"+ str(mean_squared_error(actual,prediction)))
 
-#test_predict = scaler.inverse_transform(predicted_stateful)
-#test_y_groundtruth = scaler.inverse_transform(y_test)
+f = open(path+'\\results',"a+")
+f.write( fname + ' Results \n')
+f.write('Max Training Loss: ' + str(np.max(history.history['loss']))+'\n')
+f.write('Max Training Loss: ' + str(np.min(history.history['loss']))+'\n')
+f.write('Max Training Loss: ' + str(np.max(history.history['val_loss']))+'\n')
+f.write('Max Training Loss: ' + str(np.min(history.history['val_loss']))+'\n')
+f.write('MSE: ' +  str(mean_squared_error(actual,prediction) )+'\n')
+f.close()
+plt.close("all")
 
-#Stateless: In the stateless LSTM configuration,
- #internal state is reset after each training batch 
- #or each batch when making predictions.
- 
-print('Creating Stateless Model...')
-model_stateless = create_model(stateful=False)
 
-print('Training')
-history_stateless = model_stateless.fit(train_x, train_y,batch_size=batch_size,
-                    epochs=epochs,
-                    verbose=1,
-                    validation_data=(test_x, test_y),
-                    shuffle=False)
+for file in files:
+    data = pd.read_csv(file+'.csv')
+    dataset =np.flipud(data)
+    new_dataset = entries_summation(dataset)
+    new_dataset = np.array(new_dataset,dtype=float)
+    dataset_not_op = new_dataset[:,3]
+    dataset_repaired = dataoversample(periods_to_extract[files.index(file)][0],periods_to_extract[files.index(file)][1],new_dataset)
+    for i in range(len(dataset_repaired)):
+        dataset_repaired[i] = dataset_repaired[i].flatten() #Flatten arrays saved in the list    
+    dataset_repaired = np.array(dataset_repaired)    
+    dataset_repaired = dataset_repaired[:,3]
+    #Getting rid of columns that are not required for the prediction and plotting
+        #dataset_repaired = data_prep_plot(dataset_repaired,path,fname)
+    #Data Distribution
+        # labels_distribution,values_distribution = data_distribution(np.array(dataset_repaired))
+    #Save Dataset into a CSV    
+    new_dataset = pd.DataFrame(new_dataset)
+    new_dataset.to_csv("Oversampledkilanuea.csv") #Export to CSV
+    hyper_parameters = [
+    #[1,30,0.001,50,10,30,0,False],
+    #[1,30,0.001,50,10,30,0,True],
+    #[1,30,0.01,50,10,30,0,False],        
+    #[1,60,0.01,50,10,60,0,False],          
+    #[1,30,0.001,50,10,30,0,False],      
+    #[1,60,0.001,50,10,60,0,False],  
+    #[2,30,0.01,50,10,30,0.2,False],     
+    #[2,60,0.01,50,10,60,0.2,False],  
+    #[2,30,0.001,50,10,30,0.2,False],     
+    #[2,60,0.001,50,10,60,0.2,False],
+    #[3,30,0.01,50,10,30,0.2,False],     
+    #[3,60,0.01,50,10,60,0.2,False],  
+    #[3,30,0.001,50,10,30,0.2,False],     
+    #[3,60,0.001,50,10,60,0.2,False],  
+    [4,30,0.01,50,10,30,0.2,False],      
+    [4,60,0.01,50,10,60,0.2,False],  
+    [4,30,0.001,50,10,30,0.2,False],     
+    [4,60,0.001,50,10,60,0.2,False]                       
+    ]
+    for l in range(len(hyper_parameters)):
+        print('Experiment' + str(l))
+        if l == 0:
+            sequence = np.array(dataset_not_op)
+        else:
+            sequence = np.array(dataset_repaired)
+        #sequence = np.array(new_dataset[:,3])
+        sequence = sequence.reshape(-1, 1)
+        input_len = len(sequence)
+        #Splitting into training and test set
+        training_seq = int(len(sequence)*0.90)
+        test_seq = len(sequence) - training_seq
+        train,test = sequence[0:training_seq,:],sequence[training_seq:len(sequence),:]
+        
+        scaler = MinMaxScaler(feature_range=(0,1))
+        train = scaler.fit_transform(train)
+        test = scaler.fit_transform(test)
+        train_x,train_y =  split_sequence(train,int(hyper_parameters[l][1]))
+        test_x,test_y = split_sequence(test,hyper_parameters[l][1])
+        
+        #reshaping to the the format required by the LSTM
+        train_x = train_x.reshape((train_x.shape[0],train_x.shape[1],1))
+        test_x = test_x.reshape((test_x.shape[0],test_x.shape[1],1))
 
-print('Predicting')
-predicted_stateless = model_stateless.predict(test_x, batch_size=batch_size)
-
-plt.plot(history_stateless.history['loss'])
-plt.plot(history_stateless.history['val_loss'])
-plt.ylabel('loss')
-plt.xlabel('epoch')
-plt.legend(['Train','Validation'],loc='upper right')
-plt.show()
-
-test_y1 = scaler.inverse_transform(test_y1)
-test_y3 = scaler.inverse_transform(test_y3)
-test_y6 = scaler.inverse_transform(test_y6)
-test_y9 = scaler.inverse_transform(test_y9)
-test_y2 = scaler.inverse_transform(test_y2)
-test_y4 = scaler.inverse_transform(test_y4)
-test_y7 = scaler.inverse_transform(test_y7)
-test_y10 = scaler.inverse_transform(test_y10)
-
-plt.title('Results')
-plt.plot(test_y1)
-plt.plot(test_y3)
-plt.legend(['Expected','Moving Average 7'],loc='upper right')
-MSE2 = mean_squared_error(test_y1, test_y2)
-MSE4 = mean_squared_error(test_y3, test_y4)
-MSE7 = mean_squared_error(test_y6, test_y7)
-MSE10 = mean_squared_error(test_y9, test_y10)
-
-plt.title('Results')
-plt.plot(test_y)
-plt.plot(predicted_stateful)
-plt.legend(['Expected','Stateful'],loc='upper right')
-plt.show()
-
-plt.title('Stateful: Expected - Predicted')
-plt.subplot(3, 1, 3)
-plt.plot((predicted_stateless)
-plt.title('Stateless: Expected - Predicted')
-plt.show()
-
-# To do
-# Test if Sequence is relevant
-# Try Increasing training set
-# Try changing number of cells
-# Try Different Depth architectures
-# Try Different Models
+        program = []
+        program = CustomLSTM(hyper_parameters[l][0],hyper_parameters[l][1],hyper_parameters[l][2],hyper_parameters[l][3],hyper_parameters[l][4],hyper_parameters[l][5],hyper_parameters[l][6],hyper_parameters[l][7])
+        #program = CustomGRU(hyper_parameters[l][0],hyper_parameters[l][1],hyper_parameters[l][2],hyper_parameters[l][3],hyper_parameters[l][4],hyper_parameters[l][5],hyper_parameters[l][6],hyper_parameters[l][7])
+       
+        for z in range(len(program)):
+            exec(program[z])
+            
+        path = 'C:\\Users\\fro\\Desktop\\All_volcanoes\\Results_' + str.lower(file)
+        fname = 'Experiment' + str(l)  
+    
+        plt.figure(figsize=(15,10))       
+        plt.plot(history.history['loss'])
+        plt.plot(history.history['val_loss'])
+        plt.title('model train vs validation loss')
+        plt.ylabel('loss')
+        plt.xlabel('epoch')
+        plt.legend(['train', 'validation'], loc='upper right')
+        plt.savefig(path+'\\'+fname+'Results.png')
+    
+        prediction = model_LSTM.predict(test_x)
+        actual = test_y
+        
+        plt.figure(figsize=(15,8))
+        plt.plot(actual,linewidth=1.0)
+        plt.plot(prediction,linewidth=2.0)
+        plt.title('Predictions')
+        plt.ylabel('Excess Radiation')
+        plt.xlabel('Days')
+        plt.legend(['Actual', 'Prediction'], loc='upper right')
+        plt.savefig(path+'\\'+fname+'predictions.png')
+        
+        f = open(path+'\\results',"a+")
+        f.write( fname + ' Results \n')
+        f.write('Max Training Loss: ' + str(np.max(history.history['loss']))+'\n')
+        f.write('Max Training Loss: ' + str(np.min(history.history['loss']))+'\n')
+        f.write('Max Training Loss: ' + str(np.max(history.history['val_loss']))+'\n')
+        f.write('Max Training Loss: ' + str(np.min(history.history['val_loss']))+'\n')
+        f.write('MSE: ' +  str(mean_squared_error(actual,prediction) )+'\n')
+        f.close()
+        plt.close("all")
+        
 
