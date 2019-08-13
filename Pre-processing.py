@@ -1,21 +1,19 @@
 from __future__ import print_function
 import numpy as np
-import matplotlib.pyplot as plt
-import pandas as pd
-from keras.models import Sequential
-from keras.layers import Dense, LSTM
-import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import math
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.metrics import mean_squared_error
-from keras import optimizers
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.layers import LSTM,GRU
 from keras.layers import Dropout
+from keras.layers import RepeatVector
+from keras.layers import TimeDistributed
+from keras.utils import plot_model
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import mean_squared_error
+from keras import optimizers
 
 %matplotlib inline
 def data_missing(dataset):
@@ -300,7 +298,6 @@ dataset =np.flipud(data)
 new_dataset = entries_summation(dataset)
 new_dataset = np.array(new_dataset,dtype=float)
 
-## I have to do the last pass with set to True for Erta Ale
 
 dataset_not_op = new_dataset[:,3]
 sequence = np.array(dataset_not_op)
@@ -327,14 +324,6 @@ train_x,train_y =  split_sequence(train,30)
 train_y = train_y.reshape(-1,1,1)
 test_x,test_y = split_sequence(test,30)
 test_y = test_y.reshape(-1,1,1)
-
-from numpy import array
-from keras.models import Sequential
-from keras.layers import LSTM
-from keras.layers import Dense
-from keras.layers import RepeatVector
-from keras.layers import TimeDistributed
-from keras.utils import plot_model
 
 model = Sequential()
 model.add(LSTM(128, activation='relu', input_shape=(30,1), return_sequences=True))
@@ -377,9 +366,9 @@ print("MSE:"+ str(mean_squared_error(actual,prediction)))
 f = open(path+'\\results',"a+")
 f.write( fname + ' Results \n')
 f.write('Max Training Loss: ' + str(np.max(history.history['loss']))+'\n')
-f.write('min Training Loss: ' + str(np.min(history.history['loss']))+'\n')
-f.write('Max Val Loss: ' + str(np.max(history.history['val_loss']))+'\n')
-f.write('min Val Loss: ' + str(np.min(history.history['val_loss']))+'\n')
+f.write('Max Training Loss: ' + str(np.min(history.history['loss']))+'\n')
+f.write('Max Training Loss: ' + str(np.max(history.history['val_loss']))+'\n')
+f.write('Max Training Loss: ' + str(np.min(history.history['val_loss']))+'\n')
 f.write('MSE: ' +  str(mean_squared_error(actual,prediction) )+'\n')
 f.close()
 plt.close("all")
@@ -488,4 +477,3 @@ for file in files:
         f.close()
         plt.close("all")
         
-
